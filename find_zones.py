@@ -12,32 +12,59 @@ import skimage.morphology as morphology
 import scipy.ndimage as ndi
 
 
-def get_distance_projection(masks, gs_labels, non_gs_labels):
+def get_distance_projection(masks, gs_labels, non_gs_labels, cosine_filter=False):
     """
     Improved distance calculation algorithm aimed to get a distance measure that are
     linear to the observed distance to cv and pv.
+    Defines three vectors for each interested pixel (Vi) in the following steps.
+    1. find points on nearest pv or cv masks, Vpv and Vcv, repectively.
+    2. define these three vectors.
+        #! vector_pv: vector from Vi to Vpv
+        #! vector_cv: vector from Vcv to Vi
+        #! vector_cv_to_pv: vector from Vcv to Vpv
+    3. defines distance as:
+        #! dot(vector_cv, vector_cv_to_pv)/ ||vector_cv_to_pv||^2
+    4. #Todo: decide if direction fileter should be used.
+        Since the relative positions of the three points have some limitations.
+
+    Parameters
+    ========
+    masks : np.array
+        image mask array, must be labeled.
+    (non_)gs_labels : list-like
+        labels for (portal) central vein.
+    cosine_filter : bool
+        determines if the case where vector_cv and vector_pv should be ignored.
     """
+    # get pixel coords matrix
     coords_pixel = np.array(
         np.meshgrid(np.arange(masks.shape[0]), np.arange(masks.shape[1]), indexing="ij")
     )
+    # nearest Vcv and Vpv.
     _, coords_cv = ndi.morphology.distance_transform_edt(
         ~np.isin(masks, gs_labels), return_indices=True
     )
     _, coords_pv = ndi.morphology.distance_transform_edt(
         ~np.isin(masks, non_gs_labels), return_indices=True
     )
+    # calculate the three vectors.
     vector_cv = coords_pixel - coords_cv
     vector_pv = coords_pv - coords_pixel
-    vector_pv_to_cv = coords_pv - coords_cv
-    vector_dot = np.einsum("ijk,ijk->jk", vector_cv, vector_pv_to_cv)
-    vector_pv_to_cv_norm = np.linalg.norm(vector_pv_to_cv, axis=0)
+    vector_cv_to_pv = coords_pv - coords_cv
+    # most important function, get dot product of the two vectors.
+    # this is not hard to understand, but tricky to implement without numpy eisum function.
+    vector_dot = np.einsum("ijk,ijk->jk", vector_cv, vector_cv_to_pv)
+    vector_pv_to_cv_norm = np.linalg.norm(vector_cv_to_pv, axis=0)
     projection = vector_dot / vector_pv_to_cv_norm / vector_pv_to_cv_norm
-    vector_cv_norm = np.linalg.norm(vector_cv, axis=0)
-    vector_pv_norm = np.linalg.norm(vector_pv, axis=0)
-    cosine_vectors = (
-        np.einsum("ijk,ijk->jk", vector_cv, vector_pv) / vector_cv_norm / vector_pv_norm
-    )
-    projection[cosine_vectors < 0] = -1
+    if cosine_filter:
+        vector_cv_norm = np.linalg.norm(vector_cv, axis=0)
+        vector_pv_norm = np.linalg.norm(vector_pv, axis=0)
+        cosine_vectors = (
+            np.einsum("ijk,ijk->jk", vector_cv, vector_pv)
+            / vector_cv_norm
+            / vector_pv_norm
+        )
+        projection[cosine_vectors < 0] = -1
     return projection
 
 
@@ -49,9 +76,15 @@ def fill_hollow_masks(hollow_labeled_masks):
     return filled_labeld_mask
 
 
-def dist_to_nn_masks(labeled_mask, target_labels, dist=None, nn=3):
+def dist_to_nn_masks(labeled_mask, target_labels, fill_mask=False, dist=None, nn=3):
+    """
+    Get average distance per pixel to nearest n masks.
+    """
     if dist is None:
-        filled_labeld_mask = fill_hollow_masks(labeled_mask)
+        if fill_mask:
+            filled_labeld_mask = fill_hollow_masks(labeled_mask)
+        else:
+            filled_labeld_mask = labeled_mask
         dist = [
             ndi.distance_transform_edt(filled_labeld_mask != x) for x in target_labels
         ]
@@ -62,6 +95,8 @@ def dist_to_nn_masks(labeled_mask, target_labels, dist=None, nn=3):
     return dist, mean_dist
 
 
+# --------
+# this function is currently no longer used.
 def calculate_pv_to_cv_dist_ratio(labeled_mask, pv_masks, cv_masks, nn=1):
     _, dist_to_pv = dist_to_nn_masks(labeled_mask, pv_masks, nn=nn)
     _, dist_to_cv = dist_to_nn_masks(labeled_mask, cv_masks, nn=nn)
@@ -72,6 +107,9 @@ def calculate_pv_to_cv_dist_ratio(labeled_mask, pv_masks, cv_masks, nn=1):
     dist_ratio = np.log2(1 + dist_ratio)
     dist_ratio[np.isin(filled_labeled_mask, cv_masks)] = dist_ratio.max()
     return dist_ratio
+
+
+# --------
 
 
 def make_zone_masks(dist_ratio, n_zones, method="division"):
@@ -91,8 +129,24 @@ def make_zone_masks(dist_ratio, n_zones, method="division"):
     return zone_mask
 
 
-def find_orphans(masks, gs_labels, non_gs_labels):
+def find_orphans(masks, gs_labels, non_gs_labels, orphan_crit=400):
     dist_to_pv = ndi.morphology.distance_transform_edt(~np.isin(masks, non_gs_labels))
     dist_to_cv = ndi.morphology.distance_transform_edt(~np.isin(masks, gs_labels))
-    orphans = (dist_to_pv > 350) | (dist_to_cv > 350)
+    orphans = (dist_to_pv > orphan_crit) | (dist_to_cv > orphan_crit)
     return orphans
+
+
+def create_zones(masks, zone_crit, zone_breaks=None, num_zones=5):
+    zones = np.zeros(masks.shape[:2])
+    if zone_breaks is None:
+        for i in range(num_zones):
+            t0 = i / num_zones
+            t1 = (i + 1) / num_zones
+            if i == num_zones - 1:
+                zones[zone_crit >= t0] = i + 1
+            else:
+                zones[(zone_crit >= t0) & (zone_crit < t1)] = i + 1
+    else:
+        for i, zone_break in enumerate(zone_breaks[:-1]):
+            zones[(zone_crit > zone_break) & (zone_crit <= zone_breaks[i + 1])] = i + 1
+    return zones

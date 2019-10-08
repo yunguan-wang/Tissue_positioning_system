@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-def plot_pv_cv(labeled_mask, gs_labels, img):
+def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
     new_mask = np.zeros(labeled_mask.shape)
     for _label in gs_labels:
         _crit = labeled_mask == _label
@@ -15,6 +15,9 @@ def plot_pv_cv(labeled_mask, gs_labels, img):
     plt.imshow(img)
     plt.imshow(new_mask, cmap="Greys", alpha=0.7)
     plt.imshow((labeled_mask != 0 - new_mask), alpha=0.5)
+    if prefix != "":
+        plt.savefig(prefix + "segmented_classfied.png", dpi=300)
+        plt.close()
 
 
 def plot_zone_int(img, dapi, zone_mask, savefig=False, prefix=""):
@@ -49,20 +52,33 @@ def plot_zone_with_img(img, zone_mask, savefig=False, prefix=""):
         )
 
 
-def plot_zone_int_box(img, dapi, zone_mask, orphan_mask=None, savefig=False, prefix=""):
+def plot_zone_int(
+    int_img,
+    dapi_img,
+    zone_mask,
+    plot_type="box",
+    orphan_mask=None,
+    savefig=False,
+    marker_name="GLS2",
+    prefix="",
+):
     sns.set(style="white")
     zone_int = pd.DataFrame(columns=["zone"])
     for zone in np.unique(zone_mask):
         if zone == 0:
             continue
-        _zone_int_mask = (zone_mask == zone) & (dapi >= 50)
+        _zone_int_mask = (zone_mask == zone) & (dapi_img >= 50)
         if orphan_mask is not None:
             _zone_int_mask = _zone_int_mask & (orphan_mask == False)
-        _zone_ints = img[_zone_int_mask]
+        _zone_ints = int_img[_zone_int_mask]
         _zone_ints = pd.DataFrame(_zone_ints, columns=["intensity"])
-        _zone_ints["zone"] = "Z" + str(zone)
+        _zone_ints["zone"] = "Z" + str(int(zone))
         zone_int = zone_int.append(_zone_ints, ignore_index=True)
-    sns.boxplot(x="zone", y="intensity", data=zone_int)
+    if plot_type == "box":
+        sns.boxplot(x="zone", y="intensity", data=zone_int)
+    elif plot_type == "violin":
+        sns.violinplot(x="zone", y="intensity", data=zone_int)
+    plt.title("{} intensity in different zones".format(marker_name))
     if savefig:
         plt.savefig(
             prefix + "{} zones marker intensity plot.png".format(str("")), dpi=300
