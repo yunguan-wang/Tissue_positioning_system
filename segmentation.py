@@ -78,6 +78,8 @@ def extract_gs_channel(img, gs_channel=1):
     gs_ica = ica_transformed[:, gs_component]
     gs_ica = minmax_scale(gs_ica) * 255
     gs_ica = gs_ica.reshape(img.shape[:2]).astype(np.uint8)
+    if gs_ica.mean() > 128:
+        gs_ica = 255 - gs_ica
     gs_ica = gs_ica > ski.filters.threshold_otsu(gs_ica)
     return gs_ica
 
