@@ -12,7 +12,40 @@ import skimage.morphology as morphology
 import scipy.ndimage as ndi
 
 
-def get_distance_projection(masks, gs_labels, non_gs_labels, cosine_filter=False):
+def find_pv_cv_coords(masks, cv_labels, pv_labels):
+    """
+    Improved distance calculation algorithm aimed to get a distance measure that are
+    linear to the observed distance to cv and pv.
+    For each image pixel, Find points on nearest pv or cv masks, Vpv and Vcv, repectively.
+    Parameters
+    ========
+    masks : np.array
+        image mask array, must be labeled.
+    (non_)cv_labels : list-like
+        labels for (portal) central vein.
+    cosine_filter : bool
+        determines if the case where vector_cv and vector_pv should be ignored.
+
+    Returns
+    ========
+    coords_pixel, coords_cv, coords_pv : numpy array of coordinates of each pixel,
+    nearest central vein and nearest portal vein
+    """
+    # get pixel coords matrix
+    coords_pixel = np.array(
+        np.meshgrid(np.arange(masks.shape[0]), np.arange(masks.shape[1]), indexing="ij")
+    )
+    # nearest Vcv and Vpv.
+    _, coords_cv = ndi.morphology.distance_transform_edt(
+        ~np.isin(masks, cv_labels), return_indices=True
+    )
+    _, coords_pv = ndi.morphology.distance_transform_edt(
+        ~np.isin(masks, pv_labels), return_indices=True
+    )
+    return coords_pixel, coords_cv, coords_pv
+
+
+def get_distance_projection(coords_pixel, coords_cv, coords_pv, cosine_filter=False):
     """
     Improved distance calculation algorithm aimed to get a distance measure that are
     linear to the observed distance to cv and pv.
@@ -29,24 +62,13 @@ def get_distance_projection(masks, gs_labels, non_gs_labels, cosine_filter=False
 
     Parameters
     ========
-    masks : np.array
-        image mask array, must be labeled.
-    (non_)gs_labels : list-like
-        labels for (portal) central vein.
-    cosine_filter : bool
-        determines if the case where vector_cv and vector_pv should be ignored.
+    coords_pixel : np.array
+        image pixel coordinate array
+    coords_cv : np.array
+        coordinates of the nearest point to a central vein mask for each pixel
+    coords_pv : np.array
+        coordinates of the nearest point to a portal vein mask for each pixel.
     """
-    # get pixel coords matrix
-    coords_pixel = np.array(
-        np.meshgrid(np.arange(masks.shape[0]), np.arange(masks.shape[1]), indexing="ij")
-    )
-    # nearest Vcv and Vpv.
-    _, coords_cv = ndi.morphology.distance_transform_edt(
-        ~np.isin(masks, gs_labels), return_indices=True
-    )
-    _, coords_pv = ndi.morphology.distance_transform_edt(
-        ~np.isin(masks, non_gs_labels), return_indices=True
-    )
     # calculate the three vectors.
     vector_cv = coords_pixel - coords_cv
     vector_pv = coords_pv - coords_pixel
@@ -129,24 +151,28 @@ def make_zone_masks(dist_ratio, n_zones, method="division"):
     return zone_mask
 
 
-def find_orphans(masks, gs_labels, non_gs_labels, orphan_crit=400):
-    dist_to_pv = ndi.morphology.distance_transform_edt(~np.isin(masks, non_gs_labels))
-    dist_to_cv = ndi.morphology.distance_transform_edt(~np.isin(masks, gs_labels))
+def find_orphans(masks, cv_labels, pv_labels, orphan_crit=400):
+    dist_to_pv = ndi.morphology.distance_transform_edt(~np.isin(masks, pv_labels))
+    dist_to_cv = ndi.morphology.distance_transform_edt(~np.isin(masks, cv_labels))
     orphans = (dist_to_pv > orphan_crit) | (dist_to_cv > orphan_crit)
     return orphans
 
 
-def create_zones(masks, zone_crit, zone_breaks=None, num_zones=5):
+def create_zones(masks, zone_crit, cv_labels, pv_labels, zone_breaks=None, num_zones=5):
+    # CV are labeled as -1
+    # PV are labeled as -2
     zones = np.zeros(masks.shape[:2])
     if zone_breaks is None:
         for i in range(num_zones):
             t0 = i / num_zones
             t1 = (i + 1) / num_zones
             if i == num_zones - 1:
-                zones[zone_crit >= t0] = i + 1
+                zones[zone_crit > t0] = i + 1
             else:
-                zones[(zone_crit >= t0) & (zone_crit < t1)] = i + 1
+                zones[(zone_crit > t0) & (zone_crit <= t1)] = i + 1
     else:
         for i, zone_break in enumerate(zone_breaks[:-1]):
             zones[(zone_crit > zone_break) & (zone_crit <= zone_breaks[i + 1])] = i + 1
+    zones[np.isin(masks, cv_labels)] = -1
+    zones[np.isin(masks, pv_labels)] = 255
     return zones

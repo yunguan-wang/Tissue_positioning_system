@@ -1,6 +1,7 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.pylab import cm
+import skimage as ski
 import numpy as np
 import pandas as pd
 
@@ -18,26 +19,6 @@ def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
     if prefix != "":
         plt.savefig(prefix + "segmented_classfied.png", dpi=300)
         plt.close()
-
-
-def plot_zone_int(img, dapi, zone_mask, savefig=False, prefix=""):
-    zone_means = []
-    zone_std = []
-    zone_list = []
-    for zone in np.unique(zone_mask):
-        if zone == 0:
-            continue
-        zone_list.append("Z" + str(zone))
-        _zone_ints = img[(zone_mask == zone) & (dapi > 20)]
-        _mean = _zone_ints.mean()
-        _std = _zone_ints.std()
-        zone_means.append(_mean)
-        zone_std.append(_std)
-    plt.bar(zone_list, zone_means, yerr=zone_std)
-    if savefig:
-        plt.savefig(
-            prefix + "{} zones marker intensity plot.png".format(str("")), dpi=300
-        )
 
 
 def plot_zone_with_img(img, zone_mask, savefig=False, prefix=""):
@@ -83,4 +64,59 @@ def plot_zone_int(
         plt.savefig(
             prefix + "{} zones marker intensity plot.png".format(str("")), dpi=300
         )
+        plt.close()
+    return zone_int
+
+
+def plot_zone_int_probs(
+    int_img,
+    dapi_int,
+    zone_mask,
+    dapi_cutoff=20,
+    savefig=False,
+    plot_type="prob",
+    marker_name="GLS2",
+    prefix="",
+):
+    int_cutoff = ski.filters.threshold_otsu(int_img)
+    if dapi_cutoff == "otsu":
+        dapi_cutoff = ski.filters.threshold_otsu(dapi_int)
+    int_signal_mask = int_img > int_cutoff
+    zone_int = pd.DataFrame(columns=["zone"])
+    total_pos_int = (
+        (zone_mask != 0) & int_signal_mask & (dapi_int > dapi_cutoff)
+    ).sum()
+    for zone in np.unique(zone_mask):
+        if zone == 0:
+            continue
+        _zone_px_mask = zone_mask == zone
+        _valid_zone_px_mask = _zone_px_mask & (dapi_int > dapi_cutoff)
+        _num_total_px = _zone_px_mask.sum()
+        _num_valid_px = _valid_zone_px_mask.sum()
+        _num_pos_px = int_signal_mask[_valid_zone_px_mask].sum()
+        _percent_pos = 100 * _num_pos_px / _num_valid_px
+        _zone_ints = pd.DataFrame(
+            [_percent_pos], columns=["Possibility of observe positive signal"]
+        )
+        if zone == -1:
+            _zone_ints["zone"] = "CV"
+        elif zone == 255:
+            _zone_ints["zone"] = "PV"
+        else:
+            _zone_ints["zone"] = "Z" + str(int(zone))
+        _zone_ints["percent_valid"] = 100 * _num_valid_px / _num_total_px
+        _zone_ints["percent_postive_in_zone"] = 100 * _num_pos_px / total_pos_int
+        zone_int = zone_int.append(_zone_ints, ignore_index=True)
+    zone_int.loc[zone_int.percent_valid < 10, "zone"] = (
+        "*" + zone_int.loc[zone_int.percent_valid < 10, "zone"]
+    )
+    if plot_type == "probs":
+        sns.lineplot(
+            data=zone_int,
+            y="Possibility of observe positive signal",
+            x="zone",
+            sort=False,
+        )
+    else:
+        sns.lineplot(data=zone_int, y="percent_postive_in_zone", x="zone", sort=False)
     return zone_int
