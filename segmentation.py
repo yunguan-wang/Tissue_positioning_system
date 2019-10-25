@@ -178,3 +178,25 @@ def segmenting_vessels_gs_assisted(
     print("Merging neighboring masks...")
     new_labeled_masks, _ = merge_neighboring_vessels(labeled, min_dist)
     return new_labeled_masks
+
+def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
+    new_masks = np.zeros(cv_masks.shape)
+    dapi_mask = dapi_int < dapi_cutoff
+    for _mask in np.unique(cv_masks):
+        if _mask==0:
+            continue
+        else:
+            new_mask_size = ((cv_masks==_mask)&dapi_mask).sum()
+            old_mask_size = (cv_masks==_mask).sum()
+            if new_mask_size < 0.1*old_mask_size:
+                new_masks[cv_masks==_mask] = _mask
+            else:
+                # if the new mask is not drastically reduced, meaning it is a vesseled mask
+                # only the vesseled part will be kept
+                new_masks[(cv_masks==_mask)&dapi_mask] = _mask
+
+    for _mask in np.unique(pv_masks):
+        if _mask==0:
+            continue
+        new_masks[pv_masks==_mask] = _mask
+    return new_masks
