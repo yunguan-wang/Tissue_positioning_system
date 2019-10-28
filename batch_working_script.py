@@ -24,7 +24,6 @@ for img_fn in tif_files:
         print("Segmentating using GS and DAPI")
         masks = segmenting_vessels_gs_assisted(img, vessel_size_t=2)
         io.imsave(output_mask_fn, masks.astype(np.uint8))
-    os.chdir("../")
     # get CV PV classification
     cv_features = extract_features(masks, img[:, :, 1], q1=0.75, q2=0.99, step=0.1)
     cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
