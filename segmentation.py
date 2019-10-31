@@ -73,21 +73,25 @@ def pv_classifier(cv_features, labeled_mask):
 
 
 def extract_gs_channel(img, gs_channel=1):
-    ica = FastICA(3)
+    ica = FastICA(3, random_state=0)
     ica_transformed = ica.fit_transform(img.reshape(-1, 3))
     # calculate the correlation between the transformed data with target channel.
     # This is the correct way of doing this because neither the mixing nor unmixing
     # matrix reflects the best GS channel from the transformed data.
-    corr = np.corrcoef(
-        img[:, :, gs_channel].reshape(1, -1), ica_transformed.transpose()
-    )
-    gs_component = np.argmax(abs(corr[0, 1:]))
-
+    corr = np.corrcoef(img.reshape(-1, 3), ica_transformed, rowvar=False)[:3, 3:]
+    crit = np.argmax(abs(corr), axis=0) == gs_channel
+    # Rare case 1 where the gs channel is not dominant in any components
+    if crit.sum() == 0:
+        gs_component = np.argmax(abs(corr), axis=1)[gs_channel]
+    # Rare case 2 where the gs channel is not dominant in more than 1 components
+    elif crit.sum() > 1:
+        gs_component = np.argmax(abs(corr[:, crit]), axis=1)[gs_channel]
+    else:
+        gs_component = np.argmax(crit)
     # Debugging step to identify the problem
     # gs_component_mixing = np.argmax(abs(ica.mixing_).argmax(axis=1) == gs_channel)
     # gs_component_unmixing = np.argmax(abs(ica.components_).argmax(axis=1) == gs_channel)
     # print(ica.mixing_, gs_component, gs_component_mixing,gs_component_unmixing)
-
     gs_ica = ica_transformed[:, gs_component]
     gs_ica = minmax_scale(gs_ica) * 255
     gs_ica = gs_ica.reshape(img.shape[:2]).astype(np.uint8)
@@ -175,22 +179,47 @@ def segmenting_vessels_gs_assisted(
     )
     gs_dapi_mask = gs_ica | (vessels != 0)
     # dilate the new mask a little bit to reduce the gap size.
-    # Todo, this step could be improved?
+    # Todo, this step could be improved? Not really necessary?
     selem = morphology.disk(1)
     gs_dapi_mask = morphology.binary_dilation(gs_dapi_mask, selem)
-    # Thresholding masks based on size
-    labeled = measure.label(gs_dapi_mask, connectivity=1)
-    filled_image = np.zeros(labeled.shape, dtype=bool)
+    # Calculate each pixels distance to pre-existing vessels
+    labeled_vessels = measure.label(vessels, connectivity=1)  # labeling
+    all_vessels = sorted(np.unique(labeled_vessels))[1:]  # get rid of background mask
+    # Calculate the min distance to each vessels
+    dist_to_mask = [
+        ndi.distance_transform_edt(labeled_vessels != x) for x in np.unique(all_vessels)
+    ]
+    dist_to_mask = np.array(dist_to_mask)
+    min_dist_to_mask = np.min(dist_to_mask, axis=0)  # exact distance
+    min_dist_label = (
+        np.argmin(dist_to_mask, axis=0) + 1
+    )  # To which vessel is the min distance observed
+
+    # Iterate through each combined mask from GS and DAPI, evaluate the minimal distance of each mask
+    # to pre-existing vessel, if the distance is very small, merge the mask with existing vessel mask.
+    # Todo
+    #! Important, I did not differentiate PV from CV here, thus the code might merge a GS intensive region
+    #! with a nearby PV.
+    labeled = measure.label(gs_dapi_mask, connectivity=2)
     size_cutoff = size_cutoff_factor * img.shape[0] * img.shape[1] / 10000
+    # inherit the vessel labels
+    merged_mask = labeled_vessels
+    new_label = np.max(labeled_vessels) + 1
     for region in measure.regionprops(labeled):
-        if region.filled_area > size_cutoff:
-            x0, y0, x1, y1 = region.bbox
-            filled_image[x0:x1, y0:y1] |= region.filled_image
-    labeled = measure.label(filled_image, neighbors=4, connectivity=1)
-    # merging neighboring masks
-    print("Merging neighboring masks...")
-    new_labeled_masks, _ = merge_neighboring_vessels(labeled, min_dist)
-    return new_labeled_masks
+        # Get minimal distance, and the vessel label associated with such minimal distnce
+        _region_mask = labeled == region.label
+        _min_dist_to_mask = min_dist_to_mask[_region_mask].min()
+        _min_dist_coord_idx = np.argmin(min_dist_to_mask[_region_mask])
+        _min_dist_coord = region.coords[_min_dist_coord_idx]
+        _min_dist_vessel_label = min_dist_label[_min_dist_coord[0], _min_dist_coord[1]]
+        if _min_dist_to_mask < min_dist:
+            merged_mask[_region_mask] = _min_dist_vessel_label
+        else:
+            if region.filled_area > size_cutoff:
+                x0, y0, x1, y1 = region.bbox
+                merged_mask[_region_mask] = new_label
+                new_label += 1
+    return merged_mask
 
 
 def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
