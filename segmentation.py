@@ -41,6 +41,7 @@ def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation
 
 
 def extract_features(labeled_mask, img, q1=0.75, q2=1, step=0.05):
+    # back mask is thrown away here.
     mask_features = pd.DataFrame(index=sorted(np.unique(labeled_mask))[1:])
     for region in measure.regionprops(labeled_mask, img):
         label = region.label
@@ -59,16 +60,16 @@ def extract_features(labeled_mask, img, q1=0.75, q2=1, step=0.05):
     return mask_features
 
 
-def pv_classifier(gs_features, labeled_mask):
+def pv_classifier(cv_features, labeled_mask):
     km = KMeans(2)
     pca = PCA(2)
-    gs_pca = pca.fit_transform(scale(gs_features))
+    gs_pca = pca.fit_transform(scale(cv_features))
     labels = km.fit_predict(gs_pca)
-    class_median_int = gs_features.groupby(labels).I0.median().sort_values()
+    class_median_int = cv_features.groupby(labels).I0.median().sort_values()
     high_int_label = class_median_int.index[1]
-    gs_labels = gs_features.index[labels == high_int_label]
-    non_gs_labels = gs_features.index[labels != high_int_label][1:]
-    return gs_labels, non_gs_labels
+    cv_labels = cv_features.index[labels == high_int_label]
+    non_gs_labels = cv_features.index[labels != high_int_label]
+    return cv_labels, non_gs_labels
 
 
 def extract_gs_channel(img, gs_channel=1):
@@ -77,8 +78,10 @@ def extract_gs_channel(img, gs_channel=1):
     # calculate the correlation between the transformed data with target channel.
     # This is the correct way of doing this because neither the mixing nor unmixing
     # matrix reflects the best GS channel from the transformed data.
-    corr = np.corrcoef(img[:,:,gs_channel].reshape(1,-1),ica_transformed.transpose())
-    gs_component = np.argmax(abs(corr[0,1:]))
+    corr = np.corrcoef(
+        img[:, :, gs_channel].reshape(1, -1), ica_transformed.transpose()
+    )
+    gs_component = np.argmax(abs(corr[0, 1:]))
 
     # Debugging step to identify the problem
     # gs_component_mixing = np.argmax(abs(ica.mixing_).argmax(axis=1) == gs_channel)
@@ -162,7 +165,7 @@ def segmenting_vessels_gs_assisted(
     in the image but strong gs staining, indicating a presence of central vein which is not
     sliced in the slide. By adding the gs channel information, such vessel can be recovered.
     """
-    gs_ica = extract_gs_channel(img, gs_channel=gs_channel)
+    gs_ica, _ = extract_gs_channel(img, gs_channel=gs_channel)
     vessels = segmenting_vessels(
         img,
         dilation_t=0,
@@ -189,24 +192,25 @@ def segmenting_vessels_gs_assisted(
     new_labeled_masks, _ = merge_neighboring_vessels(labeled, min_dist)
     return new_labeled_masks
 
+
 def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
     new_masks = np.zeros(cv_masks.shape)
     dapi_mask = dapi_int < dapi_cutoff
     for _mask in np.unique(cv_masks):
-        if _mask==0:
+        if _mask == 0:
             continue
         else:
-            new_mask_size = ((cv_masks==_mask)&dapi_mask).sum()
-            old_mask_size = (cv_masks==_mask).sum()
-            if new_mask_size < 0.1*old_mask_size:
-                new_masks[cv_masks==_mask] = _mask
+            new_mask_size = ((cv_masks == _mask) & dapi_mask).sum()
+            old_mask_size = (cv_masks == _mask).sum()
+            if new_mask_size < 0.01 * old_mask_size:
+                new_masks[cv_masks == _mask] = _mask
             else:
                 # if the new mask is not drastically reduced, meaning it is a vesseled mask
                 # only the vesseled part will be kept
-                new_masks[(cv_masks==_mask)&dapi_mask] = _mask
+                new_masks[(cv_masks == _mask) & dapi_mask] = _mask
 
     for _mask in np.unique(pv_masks):
-        if _mask==0:
+        if _mask == 0:
             continue
-        new_masks[pv_masks==_mask] = _mask
+        new_masks[pv_masks == _mask] = _mask
     return new_masks
