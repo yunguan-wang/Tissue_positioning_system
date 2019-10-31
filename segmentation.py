@@ -74,14 +74,24 @@ def pv_classifier(gs_features, labeled_mask):
 def extract_gs_channel(img, gs_channel=1):
     ica = FastICA(3)
     ica_transformed = ica.fit_transform(img.reshape(-1, 3))
-    gs_component = np.argmax(abs(ica.mixing_).argmax(axis=0) == gs_channel)
+    # calculate the correlation between the transformed data with target channel.
+    # This is the correct way of doing this because neither the mixing nor unmixing
+    # matrix reflects the best GS channel from the transformed data.
+    corr = np.corrcoef(img[:,:,gs_channel].reshape(1,-1),ica_transformed.transpose())
+    gs_component = np.argmax(abs(corr[0,1:]))
+
+    # Debugging step to identify the problem
+    # gs_component_mixing = np.argmax(abs(ica.mixing_).argmax(axis=1) == gs_channel)
+    # gs_component_unmixing = np.argmax(abs(ica.components_).argmax(axis=1) == gs_channel)
+    # print(ica.mixing_, gs_component, gs_component_mixing,gs_component_unmixing)
+
     gs_ica = ica_transformed[:, gs_component]
     gs_ica = minmax_scale(gs_ica) * 255
     gs_ica = gs_ica.reshape(img.shape[:2]).astype(np.uint8)
     if gs_ica.mean() > 128:
         gs_ica = 255 - gs_ica
     gs_ica = gs_ica > ski.filters.threshold_otsu(gs_ica)
-    return gs_ica
+    return gs_ica, ica
 
 
 def merge_neighboring_vessels(labeled_mask, min_dist=10):
