@@ -219,7 +219,8 @@ def segmenting_vessels_gs_assisted(
                 x0, y0, x1, y1 = region.bbox
                 merged_mask[_region_mask] = new_label
                 new_label += 1
-    return merged_mask
+    new_merged_mask, _ = merge_neighboring_vessels(merged_mask, min_dist == min_dist)
+    return new_merged_mask
 
 
 def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
