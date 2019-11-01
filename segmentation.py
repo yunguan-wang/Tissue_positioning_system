@@ -41,7 +41,10 @@ def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation
 
 
 def extract_features(labeled_mask, img, q1=0.75, q2=1, step=0.05):
-    # back mask is thrown away here.
+    # a simple erosion to get the outside ring of the mask, where GS is mostly expressed.
+    eroded = ski.morphology.erosion(labeled_mask, ski.morphology.disk(5))
+    labeled_mask = (labeled_mask - eroded).copy()
+    # background mask is thrown away here.
     mask_features = pd.DataFrame(index=sorted(np.unique(labeled_mask))[1:])
     for region in measure.regionprops(labeled_mask, img):
         label = region.label
@@ -97,8 +100,10 @@ def extract_gs_channel(img, gs_channel=1):
     gs_ica = gs_ica.reshape(img.shape[:2]).astype(np.uint8)
     if gs_ica.mean() > 128:
         gs_ica = 255 - gs_ica
+    # Returns ICA processed GS channel for better classification.
+    raw_gs_ica = gs_ica
     gs_ica = gs_ica > ski.filters.threshold_otsu(gs_ica)
-    return gs_ica, ica
+    return gs_ica, ica, raw_gs_ica
 
 
 def merge_neighboring_vessels(labeled_mask, min_dist=10):
@@ -169,7 +174,7 @@ def segmenting_vessels_gs_assisted(
     in the image but strong gs staining, indicating a presence of central vein which is not
     sliced in the slide. By adding the gs channel information, such vessel can be recovered.
     """
-    gs_ica, _ = extract_gs_channel(img, gs_channel=gs_channel)
+    gs_ica, _, raw_gs_ica = extract_gs_channel(img, gs_channel=gs_channel)
     vessels = segmenting_vessels(
         img,
         dilation_t=0,
@@ -219,8 +224,17 @@ def segmenting_vessels_gs_assisted(
                 x0, y0, x1, y1 = region.bbox
                 merged_mask[_region_mask] = new_label
                 new_label += 1
-    new_merged_mask, _ = merge_neighboring_vessels(merged_mask, min_dist == min_dist)
-    return new_merged_mask
+    # now, merge neighboring masks
+    print("Merging neighboring masks...")
+    new_merged_mask, _ = merge_neighboring_vessels(merged_mask, min_dist=min_dist)
+    while not (new_merged_mask == merged_mask).all():
+        merged_mask = new_merged_mask
+        print("Continue merging neighboring masks...")
+        new_merged_mask, _ = merge_neighboring_vessels(
+            merged_mask, min_dist == min_dist
+        )
+    # Returning not only masks, but also GS_ICA channels.
+    return new_merged_mask, raw_gs_ica
 
 
 def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):

@@ -103,7 +103,7 @@ def plot_zone_int_probs(
         # the weight is the pecentage of pixels in the zone being dapi positive
         _percent_pos = 100 * _num_pos_px / _num_total_px
         _zone_ints = pd.DataFrame(
-            [_percent_pos], columns=["Possibility of observe positive signal"]
+            [_percent_pos], columns=["Possibility of observing positive signal"]
         )
         if zone == -1:
             _zone_ints["zone"] = "CV"
@@ -121,10 +121,10 @@ def plot_zone_int_probs(
         # smoothing the curving with polynomial fit
         poly = np.polyfit(zone_int_stats.index, zone_int_stats.iloc[:, 0], 3)
         poly_y = np.poly1d(poly)(zone_int_stats.index)
-        # zone_int_stats["Possibility of observe positive signal"] = poly_y
+        # zone_int_stats["Possibility of observing positive signal"] = poly_y
         sns.lineplot(
             data=zone_int_stats,
-            y="Possibility of observe positive signal",
+            y="Possibility of observing positive signal",
             x="zone",
             sort=False,
         )
