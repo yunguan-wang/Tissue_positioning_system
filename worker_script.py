@@ -1,12 +1,13 @@
 import argparse
-from Autozone.find_zones import *
-from Autozone.plotting import *
-from Autozone.segmentation import *
+from autozone.find_zones import *
+from autozone.plotting import *
+from autozone.segmentation import *
 import os
 from skimage import io
 import skimage as ski
 import pandas as pd
-
+import warnings
+warnings.filterwarnings("ignore")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -33,18 +34,14 @@ if __name__ == '__main__':
     max_dist = args.maximal_neighbor_distance
     gs_low = args.gs_lower_limit
     gs_high = args.gs_higher_limit
-    gs_step = args.gs.gs_step
+    gs_step = args.gs_step
 
-    # os.chdir("/home2/s190548/work_zhu/images/New Tif/Normal  30%")
-    # tif_files = sorted([x for x in os.listdir() if ".tif" in x])
-    # for input_tif_fn in tif_files:
-    output_prefix = input_tif_fn.replace(".tif", "")
-    output_mask_fn = output_prefix + " masks.tif"
+    output_prefix = input_tif_fn.replace(".tif", "/")
+    output_mask_fn = output_prefix + "masks.tif"
     print('Prosessing {}'.format(input_tif_fn))
     img = io.imread(input_tif_fn)
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
-    os.chdir(output_prefix)
     if os.path.exists(output_mask_fn):
         print("Use existing masks")
         masks = io.imread(output_mask_fn)
@@ -62,7 +59,7 @@ if __name__ == '__main__':
     cv_masks = masks * np.isin(masks, cv_labels).copy()
     pv_masks = masks * np.isin(masks, pv_labels).copy()
     masks = shrink_cv_masks(cv_masks, pv_masks, img[:, :, 2])
-    plot_pv_cv(masks, cv_labels, img, output_prefix + " ")
+    plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker")
     # Calculate distance projections
     coords_pixel, coords_cv, coords_pv = find_pv_cv_coords(
         masks, cv_labels, pv_labels)
@@ -82,7 +79,8 @@ if __name__ == '__main__':
         zones,
         dapi_cutoff="otsu",
         plot_type="probs",
-        prefix=output_prefix,
+        prefix=output_prefix + 'Marker',
     )
-    zone_int.to_csv(output_prefix + ' zone int.csv')
-    plot_zone_with_img(img, zones, fig_prefix=output_prefix)
+    zone_int.to_csv(output_prefix + 'zone int.csv')
+    plot_zone_with_img(
+        img, zones, fig_prefix=output_prefix+'Marker')
