@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 requires = [
     "pandas",
-    "skimage",
+    "scikit-image",
     "numpy",
     "scipy",
     "scikit-learn",
@@ -12,7 +12,7 @@ requires = [
 DESCRIPTION = "Auto zoning algorithm from IF image based on vessels."
 
 setup(
-    name="Autozone",
+    name="autozone",
     version=0.1,
     description=DESCRIPTION,
     url="https://github.com/yunguan-wang/liver_zone_segmentation",
