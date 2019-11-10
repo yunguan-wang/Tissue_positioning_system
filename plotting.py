@@ -4,6 +4,7 @@ from matplotlib.pylab import cm
 import skimage as ski
 import numpy as np
 import pandas as pd
+import os
 
 
 def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
@@ -80,7 +81,8 @@ def plot_zone_int_probs(
     marker_name="GLS2",
     prefix="",
 ):
-    int_cutoff = ski.filters.threshold_otsu(int_img)
+    # quick hack for images where the tomato is too sparse
+    int_cutoff = np.max(100,ski.filters.threshold_otsu(int_img))
     if dapi_cutoff == "otsu":
         dapi_cutoff = ski.filters.threshold_otsu(dapi_int)
     int_signal_mask = int_img > int_cutoff
@@ -139,3 +141,82 @@ def plot_zone_int_probs(
         plt.savefig(prefix + " signal intensity in zones.png", dpi=300)
         plt.close()
     return zone_int_stats
+
+
+def plot_pooled_zone_int(folders, markers):
+    """Make zone intensity plot summerizing all image tiles. Optionally can be
+    used to compare between conditions.
+
+    Paremeters
+    ========
+    folders : list
+        a list of root folders where individual image tile and associated
+        analysis resutls can be found.
+    markers : list
+        a list of markers to evaluate
+    """
+    if isinstance(folders, str):
+        folders = [folders]
+    if isinstance(markers, str):
+        markers = [markers]
+    plot_data = pd.DataFrame()
+    abs_path = os.getcwd()
+    for folder in folders:
+        for marker in markers:
+            tif_files = sorted(
+                [x for x in os.listdir(folder)if
+                 (".tif" in x) & (marker.lower() in x.lower())
+                ])
+            for img_fn in tif_files:
+                output_prefix = img_fn.replace(".tif", "")
+                _zone_int_fn = os.path.join(
+                    abs_path, folder, output_prefix, "zone int.csv"
+                )
+                if not os.path.exists(_zone_int_fn):
+                    # Attempt to fix file name inconsistency caused by
+                    # mis-capped gene names. Find matched folders by
+                    # attempting lower cases.
+                    folders_lower = [x.lower() for x in folders]
+                    _lc_folder = os.path.join(abs_path, folder.lower())
+                    if _lc_folder in folders_lower:
+                        _mapped_folder = folders[folders_lower.index(_lc_folder)]
+                        _zone_int_fn = os.path.join(
+                            abs_path, _mapped_folder, "zone int.csv"
+                        )
+                        print("Found match for {}: {}".format(marker, _zone_int_fn))
+                    else:
+                        print("{} does not exist!".format(_zone_int_fn))
+                        continue
+                _zone_int = pd.read_csv(_zone_int_fn, index_col=0)
+                _zone_int.zone = [x.replace("*", "") for x in _zone_int.zone]
+                _zone_int.zone = _zone_int.zone.replace("*CV", "CV")
+                _zone_int["Condition"] = " ".join([folder, marker])
+                plot_data = plot_data.append(_zone_int, sort=False)
+
+    if len(plot_data) != 0:
+        n_ticks = 10
+        sns.set(style="dark")
+        plot_data.rename(columns={"zone": "bin"}, inplace=True)
+        sns.lineplot(
+            data=plot_data,
+            x="bin",
+            sort=False,
+            y="Possibility of observing positive signal",
+            hue="Condition",
+        )
+        num_zones = plot_data.bin.nunique()
+        ticks = np.linspace(0, num_zones - 1, n_ticks, dtype=int)
+        tick_labels = plot_data.bin.unique()[ticks]
+        tick_labels = [x.replace("Z", "") for x in tick_labels]
+        _ = plt.xticks(ticks, tick_labels)
+        _ = plt.legend(bbox_to_anchor=(1, 0.5), loc="center left")
+        figname = (
+            "+".join([x.upper() for x in markers])
+            + " in "
+            + " and ".join(folders)
+            + " zone int.png"
+        )
+        if figname is not None:
+            plt.tight_layout()
+            plt.savefig(figname, facecolor="w", dpi=300)
+            plt.close()
