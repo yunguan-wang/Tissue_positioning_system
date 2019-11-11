@@ -81,8 +81,11 @@ def plot_zone_int_probs(
     marker_name="GLS2",
     prefix="",
 ):
+    int_cutoff = ski.filters.threshold_otsu(int_img)
     # quick hack for images where the tomato is too sparse
-    int_cutoff = np.max(100,ski.filters.threshold_otsu(int_img))
+    if int_cutoff < 100:
+        print("Tomato intensity threshold too low, override to 100!")
+        int_cutoff = 100
     if dapi_cutoff == "otsu":
         dapi_cutoff = ski.filters.threshold_otsu(dapi_int)
     int_signal_mask = int_img > int_cutoff
@@ -164,9 +167,12 @@ def plot_pooled_zone_int(folders, markers):
     for folder in folders:
         for marker in markers:
             tif_files = sorted(
-                [x for x in os.listdir(folder)if
-                 (".tif" in x) & (marker.lower() in x.lower())
-                ])
+                [
+                    x
+                    for x in os.listdir(folder)
+                    if (".tif" in x) & (marker.lower() in x.lower())
+                ]
+            )
             for img_fn in tif_files:
                 output_prefix = img_fn.replace(".tif", "")
                 _zone_int_fn = os.path.join(
