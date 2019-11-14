@@ -7,9 +7,11 @@ from skimage import io
 import skimage as ski
 import pandas as pd
 import warnings
+import matplotlib
 warnings.filterwarnings("ignore")
 
 if __name__ == '__main__':
+    matplotlib.use('Agg')
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description='Worker script for Autozone')
     parser.add_argument('input_img', type=str,
@@ -27,6 +29,8 @@ if __name__ == '__main__':
                         help='The higher percentatge limit of GS signal intensity within a mask, which is used in classify CV from PV')
     parser.add_argument('-gs', '--gs_step', metavar='S', type=float, nargs='?', default=0.1,
                         help='The interval of percentage in the GS intensity features.')
+    parser.add_argument('-u', '--update', metavar='S', type=bool, nargs='?', default=False,
+                        help='Check for existing analysis results, if exist, skip the job.')
     args = parser.parse_args()
     input_tif_fn = args.input_img
     output = args.output
@@ -35,6 +39,7 @@ if __name__ == '__main__':
     gs_low = args.gs_lower_limit
     gs_high = args.gs_higher_limit
     gs_step = args.gs_step
+    update = args.update
 
     output_prefix = input_tif_fn.replace(".tif", "/")
     output_mask_fn = output_prefix + "masks.tif"
@@ -42,28 +47,39 @@ if __name__ == '__main__':
     img = io.imread(input_tif_fn)
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
-    if os.path.exists(output_mask_fn):
-        print("Use existing masks")
-        masks = io.imread(output_mask_fn)
+    if os.path.exists(output_prefix + 'zone int.csv') & (not update):
+        print('Analysis already done, skip this job.')
     else:
-        print("Segmentating using GS and DAPI")
-        masks, gs_ica = segmenting_vessels_gs_assisted(
-            img, vessel_size_t=vessel_size_factor, min_dist=max_dist)
-        io.imsave(output_mask_fn, masks.astype(np.uint8))
+        if os.path.exists(output_mask_fn):
+            print("Use existing masks")
+            masks = io.imread(output_mask_fn)
+            _, _, gs_ica = extract_gs_channel(img)
+            dapi_cutoff = 20
+        else:
+            print("Segmentating using GS and DAPI")
+            try:
+                masks, gs_ica = segmenting_vessels_gs_assisted(
+                    img, vessel_size_t=vessel_size_factor, min_dist=max_dist)
+                dapi_cutoff = 20
+            except:
+                print(
+                    'Default DAPI cutoff failed, try using 0.5 * Otsu threshold values.')
+                dapi_cutoff = 0.5 * ski.filters.threshold_otsu(img[:, :, 2])
+                masks, gs_ica = segmenting_vessels_gs_assisted(
+                    img, vessel_size_t=vessel_size_factor, min_dist=max_dist, dark_t=dapi_cutoff)
 
-    # get CV PV classification
-    cv_features = extract_features(
-        masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step)
-    cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
+            io.imsave(output_mask_fn, masks.astype(np.uint8))
 
-    # modify CV masks to shrink their borders
-    cv_masks = masks * np.isin(masks, cv_labels).copy()
-    pv_masks = masks * np.isin(masks, pv_labels).copy()
-    masks = shrink_cv_masks(cv_masks, pv_masks, img[:, :, 2])
-    # update cv and pv masks
-    cv_masks = masks * np.isin(masks, cv_labels).copy()
-    pv_masks = masks * np.isin(masks, pv_labels).copy()
-    plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker")
+        # get CV PV classification
+        cv_features = extract_features(
+            masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step)
+        cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
+        # modify CV masks to shrink their borders
+        cv_masks = masks * np.isin(masks, cv_labels).copy()
+        pv_masks = masks * np.isin(masks, pv_labels).copy()
+        masks = shrink_cv_masks(
+            cv_masks, pv_masks, img[:, :, 2], dapi_cutoff=dapi_cutoff)
+        plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
 
     # find lobules
     _, lobules_sizes, lobule_edges = find_lobules(cv_masks,lobule_name=output_prefix.replace('.tif',''))
