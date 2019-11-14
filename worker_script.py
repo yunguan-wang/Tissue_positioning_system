@@ -55,17 +55,19 @@ if __name__ == '__main__':
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
             dapi_cutoff = 20
+            vessels = segmenting_vessels(img, dilation_t=0, dark_t=dapi_cutoff,
+                                         dapi_channel=2, vessel_size_t=2)
         else:
             print("Segmentating using GS and DAPI")
             try:
-                masks, gs_ica = segmenting_vessels_gs_assisted(
+                masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img, vessel_size_t=vessel_size_factor, min_dist=max_dist)
                 dapi_cutoff = 20
             except:
                 print(
                     'Default DAPI cutoff failed, try using 0.5 * Otsu threshold values.')
                 dapi_cutoff = 0.5 * ski.filters.threshold_otsu(img[:, :, 2])
-                masks, gs_ica = segmenting_vessels_gs_assisted(
+                masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img, vessel_size_t=vessel_size_factor, min_dist=max_dist, dark_t=dapi_cutoff)
 
             io.imsave(output_mask_fn, masks.astype(np.uint8))
@@ -77,13 +79,13 @@ if __name__ == '__main__':
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
         masks = shrink_cv_masks(
-            cv_masks, pv_masks, img[:, :, 2], dapi_cutoff=dapi_cutoff)
+            cv_masks, pv_masks, vessels)
         plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
 
         # find lobules
         _, lobules_sizes, lobule_edges = find_lobules(cv_masks,lobule_name=output_prefix.replace('.tif',''))
         lobules_sizes.to_csv(output_prefix + 'lobule_sizes.csv')
-        plot3channels(lobule_edges, cv_masks!=0, pv_masks!=0, fig_name=output_prefix + 'lobules.png')
+        plot3channels(lobule_edges, cv_masks!=0, pv_masks!=0, fig_name=output_prefix + 'lobules')
 
         # Calculate distance projections
         coords_pixel, coords_cv, coords_pv = find_pv_cv_coords(

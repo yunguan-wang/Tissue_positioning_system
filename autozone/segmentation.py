@@ -238,37 +238,37 @@ def segmenting_vessels_gs_assisted(
             merged_mask, min_dist == min_dist
         )
     # Returning not only masks, but also GS_ICA channels.
-    return new_merged_mask, raw_gs_ica
+    return new_merged_mask, raw_gs_ica, vessels
 
 
-def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
+def shrink_cv_masks(cv_masks, pv_masks, vessels):
     new_masks = np.zeros(cv_masks.shape)
-    dapi_mask = dapi_int < dapi_cutoff
+    vessel_mask = vessels != 0
     # shrinking CV masks
     for _mask in np.unique(cv_masks):
         if _mask == 0:
             continue
         else:
-            new_mask_size = ((cv_masks == _mask) & dapi_mask).sum()
+            new_mask_size = ((cv_masks == _mask) & vessel_mask).sum()
             old_mask_size = (cv_masks == _mask).sum()
             if new_mask_size < 0.01 * old_mask_size:
                 new_masks[cv_masks == _mask] = _mask
             else:
                 # if the new mask is not drastically reduced, meaning it is a vesseled mask
                 # only the vesseled part will be kept
-                new_masks[(cv_masks == _mask) & dapi_mask] = _mask
+                new_masks[(cv_masks == _mask) & vessel_mask] = _mask
 
     # shrinking PV masks
     for _mask in np.unique(pv_masks):
         if _mask == 0:
             continue
         else:
-            new_mask_size = ((pv_masks == _mask) & dapi_mask).sum()
+            new_mask_size = ((pv_masks == _mask) & vessel_mask).sum()
             old_mask_size = (pv_masks == _mask).sum()
             if new_mask_size < 0.01 * old_mask_size:
                 new_masks[pv_masks == _mask] = _mask
             else:
                 # if the new mask is not drastically reduced, meaning it is a vesseled mask
                 # only the vesseled part will be kept
-                new_masks[(pv_masks == _mask) & dapi_mask] = _mask
+                new_masks[(pv_masks == _mask) & vessel_mask] = _mask
     return new_masks

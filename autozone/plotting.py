@@ -36,21 +36,18 @@ def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
 
 def plot_zone_with_img(img, zones, fig_prefix=""):
     plot_zones = zones.copy()
-    n_zones = np.unique(zones).shape[0] - 3 # not counting cv, pv and background zones
-    # extracting cv and pv masks
-    cv_masks = plot_zones == -1
-    pv_masks = plot_zones == 255
-    plot_zones[plot_zones == -1] = 0
-    plot_zones[plot_zones == 255] = 0
-    plot3channels(plot_zones, cv_masks, pv_masks, fig_name=fig_prefix + ' zones only')
-
-    # plotting zones with raw image
-    plot_zones = plot_zones * 255 / (n_zones)
+    n_zones = np.unique(zones).shape[0] - 1
+    plot_zones[plot_zones == -1] = n_zones + 2
+    plot_zones[plot_zones == 255] = n_zones + 1
+    plot_zones = plot_zones * 255 / (n_zones + 4)
     plt.imshow(img)
     plt.imshow(plot_zones, alpha=0.5)
     if fig_prefix != "":
         plt.savefig(fig_prefix + " zones with image.png", dpi=300)
         plt.close()
+    plt.imshow(plot_zones)
+    plt.savefig(fig_prefix + " zones only.png", dpi=300)
+    plt.close()
 
 
 def plot_zone_int(
