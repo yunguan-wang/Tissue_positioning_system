@@ -160,7 +160,7 @@ def find_orphans(masks, cv_labels, pv_labels, orphan_crit=400):
 
 def create_zones(masks, zone_crit, cv_labels, pv_labels, zone_breaks=None, num_zones=5):
     # CV are labeled as -1
-    # PV are labeled as -2
+    # PV are labeled as 255
     zones = np.zeros(masks.shape[:2])
     if zone_breaks is None:
         for i in range(num_zones):
@@ -176,3 +176,32 @@ def create_zones(masks, zone_crit, cv_labels, pv_labels, zone_breaks=None, num_z
     zones[np.isin(masks, cv_labels)] = -1
     zones[np.isin(masks, pv_labels)] = 255
     return zones
+
+def find_lobules(cv_masks, outlier_t = 0.1, lobule_name='lobule'):
+    """Find lobules based on watershed on known CV masks.
+
+    Returns the lobule masks and lobule sizes.
+    """
+    cv_dist = ndi.distance_transform_edt(cv_masks==0)
+    # get centroid of each CV, use it as the watershed peaks.
+    markers = np.zeros(cv_masks.shape)
+    for region in ski.measure.regionprops(cv_masks):
+        x_c, y_c = region.centroid
+        cv_name = region.label
+        markers[int(x_c), int(y_c)] = cv_name
+    # watershed
+    lobules = ski.morphology.watershed(cv_dist, markers)
+    # Find lobule boundaries via evaluating pixel greadients.
+    grads = ski.filters.rank.gradient(lobules, ski.morphology.disk(5))
+    lobule_edges = grads!=0
+    # calculating lobule sizes
+    lobule_sizes = pd.DataFrame()
+    for region in ski.measure.regionprops(lobules):
+        lobule_sizes.loc[region.label, 'lobule_size'] = region.area
+    cutoff_low = lobule_sizes.lobule_size.quantile(outlier_t)
+    cutoff_high = lobule_sizes.lobule_size.quantile(1 - outlier_t)
+    lobule_sizes = lobule_sizes[(lobule_sizes.lobule_size >= cutoff_low) &
+                                (lobule_sizes.lobule_size <= cutoff_high)]
+    lobule_sizes = np.sqrt(lobule_sizes)
+    lobule_sizes['lobule_name'] = lobule_name
+    return lobules, lobule_sizes, lobule_edges
