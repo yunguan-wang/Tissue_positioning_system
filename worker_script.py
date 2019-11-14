@@ -55,6 +55,7 @@ if __name__ == '__main__':
             print("Use existing masks")
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
+            dapi_cutoff = 20
         else:
             print("Segmentating using GS and DAPI")
             try:
