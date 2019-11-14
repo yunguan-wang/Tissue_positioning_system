@@ -108,8 +108,8 @@ def extract_gs_channel(img, gs_channel=1):
 
 def merge_neighboring_vessels(labeled_mask, min_dist=10):
     """
-    Calculate neares pixel to pixel distance between two nearby masks, if they are within the threshold, 
-    the masks will be merged.
+    Calculate neares pixel to pixel distance between two nearby masks, if
+    they are within the threshold, the masks will be merged.
     """
     # remove the mask for background, which is 0
     all_masks = sorted(np.unique(labeled_mask))[1:]
@@ -169,10 +169,14 @@ def segmenting_vessels_gs_assisted(
     gs_channel=1,
 ):
     """
-    Segmentation of vessels with both dapi channel information and gs channel information.
-    The use of gs channel is important because sometimes there is not visible dapi holes
-    in the image but strong gs staining, indicating a presence of central vein which is not
-    sliced in the slide. By adding the gs channel information, such vessel can be recovered.
+    Segmentation of vessels with both dapi channel information and gs
+    channel information.
+    The use of gs channel is important because sometimes there is not
+    visible dapi holes in the image but strong gs staining, indicating a
+    presence of central vein which is not sliced in the slide. By adding
+    visible dapi holes in the image but strong gs staining, indicating a
+    presence of central vein which is not sliced in the slide. By adding
+    the gs channel information, such vessel can be recovered.
     """
     gs_ica, _, raw_gs_ica = extract_gs_channel(img, gs_channel=gs_channel)
     vessels = segmenting_vessels(
@@ -240,6 +244,7 @@ def segmenting_vessels_gs_assisted(
 def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
     new_masks = np.zeros(cv_masks.shape)
     dapi_mask = dapi_int < dapi_cutoff
+    # shrinking CV masks
     for _mask in np.unique(cv_masks):
         if _mask == 0:
             continue
@@ -253,8 +258,17 @@ def shrink_cv_masks(cv_masks, pv_masks, dapi_int, dapi_cutoff=20):
                 # only the vesseled part will be kept
                 new_masks[(cv_masks == _mask) & dapi_mask] = _mask
 
+    # shrinking PV masks
     for _mask in np.unique(pv_masks):
         if _mask == 0:
             continue
-        new_masks[pv_masks == _mask] = _mask
+        else:
+            new_mask_size = ((pv_masks == _mask) & dapi_mask).sum()
+            old_mask_size = (pv_masks == _mask).sum()
+            if new_mask_size < 0.01 * old_mask_size:
+                new_masks[pv_masks == _mask] = _mask
+            else:
+                # if the new mask is not drastically reduced, meaning it is a vesseled mask
+                # only the vesseled part will be kept
+                new_masks[(pv_masks == _mask) & dapi_mask] = _mask
     return new_masks
