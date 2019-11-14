@@ -7,6 +7,18 @@ import pandas as pd
 import os
 
 
+def plot3channels(c1, c2, c3, fig_name=None):
+    # plot the lobules
+    new_img = np.zeros((c1.shape))
+    new_img[:,:,0] = c1
+    new_img[:,:,1] = c2
+    new_img[:,:,2] = c3
+    ski.io.imshow(new_img)
+    if fig_name is not None:
+        plt.savefig(fig_name + '.pdf',
+                    dpi=300, facecolor='w')
+        plt.close()
+
 def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
     new_mask = np.zeros(labeled_mask.shape)
     for _label in gs_labels:
@@ -24,18 +36,21 @@ def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
 
 def plot_zone_with_img(img, zones, fig_prefix=""):
     plot_zones = zones.copy()
-    n_zones = np.unique(zones).shape[0] - 1
-    plot_zones[plot_zones == -1] = n_zones + 2
-    plot_zones[plot_zones == 255] = n_zones + 1
-    plot_zones = plot_zones * 255 / (n_zones + 4)
+    n_zones = np.unique(zones).shape[0] - 3 # not counting cv, pv and background zones
+    # extracting cv and pv masks
+    cv_masks = plot_zones == -1
+    pv_masks = plot_zones == 255
+    plot_zones[plot_zones == -1] = 0
+    plot_zones[plot_zones == 255] = 0
+    plot3channels(plot_zones, cv_masks, pv_masks, fig_name=fig_prefix + ' zones only')
+
+    # plotting zones with raw image
+    plot_zones = plot_zones * 255 / (n_zones)
     plt.imshow(img)
     plt.imshow(plot_zones, alpha=0.5)
     if fig_prefix != "":
         plt.savefig(fig_prefix + " zones with image.png", dpi=300)
         plt.close()
-    plt.imshow(plot_zones)
-    plt.savefig(fig_prefix + " zones only.png", dpi=300)
-    plt.close()
 
 
 def plot_zone_int(
@@ -158,6 +173,8 @@ def plot_pooled_zone_int(folders, markers):
     markers : list
         a list of markers to evaluate
     """
+    sns.set(style='white',
+            rc={'axes.facecolor':'white', 'figure.facecolor':'white'})
     if isinstance(folders, str):
         folders = [folders]
     if isinstance(markers, str):
@@ -198,10 +215,12 @@ def plot_pooled_zone_int(folders, markers):
                 _zone_int.zone = _zone_int.zone.replace("*CV", "CV")
                 _zone_int["Condition"] = " ".join([folder, marker])
                 plot_data = plot_data.append(_zone_int, sort=False)
-
     if len(plot_data) != 0:
+        n_conditions = plot_data.Condition.nunique()
+        palette = sns.diverging_palette(0, 240, sep=80,
+                                        n=n_conditions, s=75, l=50,
+                                        center='dark')
         n_ticks = 10
-        sns.set(style="dark")
         plot_data.rename(columns={"zone": "bin"}, inplace=True)
         sns.lineplot(
             data=plot_data,
@@ -209,9 +228,12 @@ def plot_pooled_zone_int(folders, markers):
             sort=False,
             y="Possibility of observing positive signal",
             hue="Condition",
+            palette=palette,
+            hue_order=sorted(plot_data.Condition.unique())
         )
         num_zones = plot_data.bin.nunique()
-        ticks = np.linspace(0, num_zones - 1, n_ticks, dtype=int)
+        # Starting with 1, getting rid of CV.
+        ticks = np.linspace(1, num_zones - 1, n_ticks, dtype=int)
         tick_labels = plot_data.bin.unique()[ticks]
         tick_labels = [x.replace("Z", "") for x in tick_labels]
         _ = plt.xticks(ticks, tick_labels)

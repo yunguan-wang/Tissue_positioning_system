@@ -55,11 +55,21 @@ if __name__ == '__main__':
     cv_features = extract_features(
         masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step)
     cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
+
     # modify CV masks to shrink their borders
     cv_masks = masks * np.isin(masks, cv_labels).copy()
     pv_masks = masks * np.isin(masks, pv_labels).copy()
     masks = shrink_cv_masks(cv_masks, pv_masks, img[:, :, 2])
+    # update cv and pv masks
+    cv_masks = masks * np.isin(masks, cv_labels).copy()
+    pv_masks = masks * np.isin(masks, pv_labels).copy()
     plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker")
+
+    # find lobules
+    _, lobules_sizes, lobule_edges = find_lobules(cv_masks,lobule_name=output_prefix.replace('.tif',''))
+    lobules_sizes.to_csv(output_prefix + 'lobule_sizes.csv')
+    plot3channels(lobule_edges, cv_masks!=0, pv_masks!=0, fig_name=output_prefix + 'lobules.png')
+
     # Calculate distance projections
     coords_pixel, coords_cv, coords_pv = find_pv_cv_coords(
         masks, cv_labels, pv_labels)
