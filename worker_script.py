@@ -80,33 +80,33 @@ if __name__ == '__main__':
             cv_masks, pv_masks, img[:, :, 2], dapi_cutoff=dapi_cutoff)
         plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
 
-    # find lobules
-    _, lobules_sizes, lobule_edges = find_lobules(cv_masks,lobule_name=output_prefix.replace('.tif',''))
-    lobules_sizes.to_csv(output_prefix + 'lobule_sizes.csv')
-    plot3channels(lobule_edges, cv_masks!=0, pv_masks!=0, fig_name=output_prefix + 'lobules.png')
+        # find lobules
+        _, lobules_sizes, lobule_edges = find_lobules(cv_masks,lobule_name=output_prefix.replace('.tif',''))
+        lobules_sizes.to_csv(output_prefix + 'lobule_sizes.csv')
+        plot3channels(lobule_edges, cv_masks!=0, pv_masks!=0, fig_name=output_prefix + 'lobules.png')
 
-    # Calculate distance projections
-    coords_pixel, coords_cv, coords_pv = find_pv_cv_coords(
-        masks, cv_labels, pv_labels)
-    orphans = find_orphans(masks, cv_labels, pv_labels)
-    zone_crit = get_distance_projection(
-        coords_pixel, coords_cv, coords_pv, cosine_filter=True
-    )
-    zone_crit[masks != 0] = -1
-    zone_crit[(zone_crit > 1) | (zone_crit < 0)] = -1
-    zone_crit[orphans] = -1
+        # Calculate distance projections
+        coords_pixel, coords_cv, coords_pv = find_pv_cv_coords(
+            masks, cv_labels, pv_labels)
+        orphans = find_orphans(masks, cv_labels, pv_labels)
+        zone_crit = get_distance_projection(
+            coords_pixel, coords_cv, coords_pv, cosine_filter=True
+        )
+        zone_crit[masks != 0] = -1
+        zone_crit[(zone_crit > 1) | (zone_crit < 0)] = -1
+        zone_crit[orphans] = -1
 
-    # Calculate zones
-    zones = create_zones(masks, zone_crit, cv_labels,
-                         pv_labels, num_zones=24)
-    zone_int = plot_zone_int_probs(
-        img[:, :, 0],
-        img[:, :, 2],
-        zones,
-        dapi_cutoff="otsu",
-        plot_type="probs",
-        prefix=output_prefix + 'Marker',
-    )
-    zone_int.to_csv(output_prefix + 'zone int.csv')
-    plot_zone_with_img(
-        img, zones, fig_prefix=output_prefix+'Marker')
+        # Calculate zones
+        zones = create_zones(masks, zone_crit, cv_labels,
+                            pv_labels, num_zones=24)
+        zone_int = plot_zone_int_probs(
+            img[:, :, 0],
+            img[:, :, 2],
+            zones,
+            dapi_cutoff="otsu",
+            plot_type="probs",
+            prefix=output_prefix + 'Marker',
+        )
+        zone_int.to_csv(output_prefix + 'zone int.csv')
+        plot_zone_with_img(
+            img, zones, fig_prefix=output_prefix+'Marker')
