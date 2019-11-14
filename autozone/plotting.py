@@ -9,7 +9,7 @@ import os
 
 def plot3channels(c1, c2, c3, fig_name=None):
     # plot the lobules
-    new_img = np.zeros((c1.shape))
+    new_img = np.zeros((c1.shape[0], c1.shape[1], 3))
     new_img[:,:,0] = c1
     new_img[:,:,1] = c2
     new_img[:,:,2] = c3
