@@ -23,6 +23,8 @@ if __name__ == '__main__':
                         help='Vessel size threshold as x/10000 fold of image size')
     parser.add_argument('-d', '--maximal_neighbor_distance', metavar='D', type=int, nargs='?', default=20,
                         help='maximal pixel distance between two neighboring masks to be considered as two separate masks.')
+    parser.add_argument('-c', '--dapi_cutoff', metavar='C', type=int, nargs='?', default=20,
+                        help='Dapi cutoff value for hard thresholding.')
     parser.add_argument('-gl', '--gs_lower_limit', metavar='L', type=float, nargs='?', default=0.25,
                         help='The lower percentatge limit of GS signal intensity within a mask, which is used in classify CV from PV')
     parser.add_argument('-gh', '--gs_higher_limit', metavar='H', type=float, nargs='?', default=0.75,
@@ -40,6 +42,7 @@ if __name__ == '__main__':
     gs_high = args.gs_higher_limit
     gs_step = args.gs_step
     update = args.update
+    dapi_cutoff = args.dapi_cutoff
 
     output_prefix = input_tif_fn.replace(".tif", "/")
     output_mask_fn = output_prefix + "masks.tif"
@@ -54,7 +57,6 @@ if __name__ == '__main__':
             print("Use existing masks")
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
-            dapi_cutoff = 20
             vessels = segmenting_vessels(img, dilation_t=0, dark_t=dapi_cutoff,
                                          dapi_channel=2, vessel_size_t=2)
         else:
@@ -62,7 +64,6 @@ if __name__ == '__main__':
             try:
                 masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img, vessel_size_t=vessel_size_factor, min_dist=max_dist)
-                dapi_cutoff = 20
             except:
                 print(
                     'Default DAPI cutoff failed, try using 0.5 * Otsu threshold values.')
