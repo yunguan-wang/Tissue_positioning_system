@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import os
 
+sns.set(style='white',
+        rc={'axes.facecolor':'white', 'figure.facecolor':'white'})
 
 def plot3channels(c1, c2, c3, fig_name=None):
     # plot the lobules
@@ -157,8 +159,8 @@ def plot_zone_int_probs(
         plt.close()
     return zone_int_stats
 
-
-def plot_pooled_zone_int(folders, markers):
+def plot_pooled_zone_int(folders, markers, plot_data=None,
+                         plot_diff_bar=True, save_fig=True):
     """Make zone intensity plot summerizing all image tiles. Optionally can be
     used to compare between conditions.
 
@@ -169,9 +171,80 @@ def plot_pooled_zone_int(folders, markers):
         analysis resutls can be found.
     markers : list
         a list of markers to evaluate
+    plot_diff_bar : bool
+        if Tuue a bar graph representing the mean difference of each bin between conditions
+        is plotted.
+    plot_Data : None or pd.DataFrame
+        If none, plot data is renerated based on given folders and markers.
+        It can also be provided, which is returned by "get_pooled_zone_int" function.
     """
-    sns.set(style='white',
-            rc={'axes.facecolor':'white', 'figure.facecolor':'white'})
+    if plot_data is None:
+        plot_data = get_pooled_zone_int(folders,markers)
+    # Drop CV
+    plot_data = plot_data[plot_data.zone!='CV']
+    if len(plot_data) != 0:
+        n_conditions = plot_data.Condition.nunique()
+        cond_order = sorted(plot_data.Condition.unique())
+        palette = sns.diverging_palette(0, 240, sep=80,
+                                        n=n_conditions, s=75, l=50,
+                                        center='dark')
+        n_ticks = 10
+        plot_data.rename(columns={"zone": "bin"}, inplace=True)
+        sns.lineplot(
+            data=plot_data,
+            x="bin",
+            sort=False,
+            y="Possibility of observing positive signal",
+            hue="Condition",
+            palette=palette,
+            hue_order=cond_order)
+        # Plot diff bars
+        if plot_diff_bar & n_conditions>1:
+            ref_cond = cond_order[1]
+            target_cond = cond_order[0]
+            ref = plot_data[plot_data.Condition==ref_cond].groupby('bin')
+            tar = plot_data[plot_data.Condition==target_cond].groupby('bin')
+            ref_mean = ref['Possibility of observing positive signal'].mean()
+            tar_mean = tar['Possibility of observing positive signal'].mean()
+            diff = tar_mean - ref_mean
+            diff = diff[plot_data.bin.unique()]
+            sns.barplot(x=diff.index, y=diff.values,color='grey', alpha=0.5)
+        # formatting ticks and tick labels.
+        num_zones = plot_data.bin.nunique()
+        # Starting with 1, getting rid of CV.
+        ticks = np.linspace(0, num_zones - 1, n_ticks, dtype=int)
+        tick_labels = plot_data.bin.unique()[ticks]
+        tick_labels = [x.replace("Z", "") for x in tick_labels]
+        _ = plt.xticks(ticks, tick_labels)
+        _ = plt.legend(bbox_to_anchor=(1, 0.5), loc="center left")
+        if save_fig:
+            figname = (
+                "+".join([x.upper() for x in markers])
+                + " in "
+                + " and ".join(folders)
+                + " zone int.png"
+            )
+            if figname is not None:
+                plt.tight_layout()
+                plt.savefig(figname, facecolor="w", dpi=300)
+                plt.close()
+
+def get_pooled_zone_int(folders, markers):
+    """Prepare data for zone intensity plot.
+
+    Paremeters
+    ========
+    folders : list
+        a list of root folders where individual image tile and associated
+        analysis resutls can be found.
+    markers : list
+        a list of markers to evaluate
+
+    Returns
+    ========
+    plot_data : pd.DataFrame
+        table of pooled zone intensity feature to be used in the plotting function.
+    """
     if isinstance(folders, str):
         folders = [folders]
     if isinstance(markers, str):
@@ -212,36 +285,4 @@ def plot_pooled_zone_int(folders, markers):
                 _zone_int.zone = _zone_int.zone.replace("*CV", "CV")
                 _zone_int["Condition"] = " ".join([folder, marker])
                 plot_data = plot_data.append(_zone_int, sort=False)
-    if len(plot_data) != 0:
-        n_conditions = plot_data.Condition.nunique()
-        palette = sns.diverging_palette(0, 240, sep=80,
-                                        n=n_conditions, s=75, l=50,
-                                        center='dark')
-        n_ticks = 10
-        plot_data.rename(columns={"zone": "bin"}, inplace=True)
-        sns.lineplot(
-            data=plot_data,
-            x="bin",
-            sort=False,
-            y="Possibility of observing positive signal",
-            hue="Condition",
-            palette=palette,
-            hue_order=sorted(plot_data.Condition.unique())
-        )
-        num_zones = plot_data.bin.nunique()
-        # Starting with 1, getting rid of CV.
-        ticks = np.linspace(1, num_zones - 1, n_ticks, dtype=int)
-        tick_labels = plot_data.bin.unique()[ticks]
-        tick_labels = [x.replace("Z", "") for x in tick_labels]
-        _ = plt.xticks(ticks, tick_labels)
-        _ = plt.legend(bbox_to_anchor=(1, 0.5), loc="center left")
-        figname = (
-            "+".join([x.upper() for x in markers])
-            + " in "
-            + " and ".join(folders)
-            + " zone int.png"
-        )
-        if figname is not None:
-            plt.tight_layout()
-            plt.savefig(figname, facecolor="w", dpi=300)
-            plt.close()
+    return plot_data
