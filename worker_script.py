@@ -67,7 +67,7 @@ if __name__ == '__main__':
             print("Segmentating using GS and DAPI")
             try:
                 masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
-                    img, vessel_size_t=vessel_size_factor, min_dist=max_dist)
+                    img, vessel_size_t=vessel_size_factor, min_dist=max_dist, dark_t=dapi_cutoff)
             except:
                 print(
                     'Default DAPI cutoff failed, try using 0.5 * Otsu threshold values.')
