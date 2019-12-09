@@ -99,9 +99,7 @@ def fill_hollow_masks(hollow_labeled_masks):
 
 
 def dist_to_nn_masks(labeled_mask, target_labels, fill_mask=False, dist=None, nn=3):
-    """
-    Get average distance per pixel to nearest n masks.
-    """
+    """Get average distance per pixel to nearest n masks."""
     if dist is None:
         if fill_mask:
             filled_labeld_mask = fill_hollow_masks(labeled_mask)
@@ -205,3 +203,22 @@ def find_lobules(cv_masks, outlier_t = 0.1, lobule_name='lobule'):
     lobule_sizes = np.sqrt(lobule_sizes)
     lobule_sizes['lobule_name'] = lobule_name
     return lobules, lobule_sizes, lobule_edges
+
+def get_zonal_spot_sizes(int_img, zones, output_prefix):
+    int_cutoff = ski.filters.threshold_otsu(int_img)
+    int_signal_mask = int_img > int_cutoff
+    labeled_int_signal_mask = ski.morphology.label(int_signal_mask)
+    zones[(zones<0)|(zones==255)]=0
+    spot_sizes = []
+    zone_lables = []
+    for region in ski.measure.regionprops(labeled_int_signal_mask):
+        region_mask = labeled_int_signal_mask == region.label
+        avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
+        spot_sizes.append(region.equivalent_diameter)
+        zone_lables.append(avg_zone_number)
+    spot_sizes = pd.DataFrame({'spot_size': spot_sizes,
+                            'zone': zone_lables})
+    spot_sizes = spot_sizes[spot_sizes.zone!=0]
+    spot_sizes = spot_sizes.sort_values('zone')
+    spot_sizes.to_csv(output_prefix+'spot_sizes.csv')
+    return spot_sizes
