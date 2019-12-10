@@ -159,77 +159,83 @@ def plot_zone_int_probs(
         plt.close()
     return zone_int_stats
 
-def plot_pooled_zone_int(folders, markers, plot_data=None,
-                         plot_diff_bar=True, save_fig=True):
+def plot_pooled_zonal_data(plot_data, y_col='Possibility of observing positive signal',
+                           hue_col='Condition', hue_order = None, plot_diff_bar=True,
+                           plot_type='line', n_ticks=10, figname=None):
     """Make zone intensity plot summerizing all image tiles. Optionally can be
     used to compare between conditions.
 
     Paremeters
     ========
-    folders : list
-        a list of root folders where individual image tile and associated
-        analysis resutls can be found.
-    markers : list
-        a list of markers to evaluate
+    plot_data : pd.DataFrame
+        a table with zonal data, must have a col'zone' with zone information and other columns
+        for data. Indedices in the data carris no information.
+        It is returned by "get_pooled_zone_int" function.
+    (y_, hue_)col : str
+        columns names for numberic data to be shown and hue color.
+    plot_type : str
+        type of plot, can be 'line' plot for zonal intensities and 'swarm'/'box' plot for sparsespot sizes.
     plot_diff_bar : bool
-        if Tuue a bar graph representing the mean difference of each bin between conditions
-        is plotted.
-    plot_Data : None or pd.DataFrame
-        If none, plot data is renerated based on given folders and markers.
-        It can also be provided, which is returned by "get_pooled_zone_int" function.
+        if Tuue a bar graph representing the mean difference of each bin between conditionsis plotted.
+    n_ticks : int
+        number of ticks on x axis.
     """
-    if plot_data is None:
-        plot_data = get_pooled_zone_int(folders,markers)
     # Drop CV
     plot_data = plot_data[plot_data.zone!='CV']
+    # sorting
+    if not isinstance(plot_data.zone.dtypes,int):
+        plot_data.zone = [x.replace("Z", "") for x in plot_data.zone.values]
+    plot_data.zone = plot_data.zone.str.zfill(2)
+    plot_data = plot_data.sort_values('zone')
+
     if len(plot_data) != 0:
-        n_conditions = plot_data.Condition.nunique()
-        cond_order = sorted(plot_data.Condition.unique())
-        palette = sns.diverging_palette(0, 240, sep=80,
+        n_conditions = plot_data[hue_col].nunique()
+        if hue_order is None:
+            hue_order = sorted(plot_data[hue_col].unique())
+        palette = sns.diverging_palette(240, 0, sep=80,
                                         n=n_conditions, s=75, l=50,
                                         center='dark')
-        n_ticks = 10
         plot_data.rename(columns={"zone": "bin"}, inplace=True)
-        sns.lineplot(
-            data=plot_data,
-            x="bin",
-            sort=False,
-            y="Possibility of observing positive signal",
-            hue="Condition",
-            palette=palette,
-            hue_order=cond_order)
-        # Plot diff bars
-        if plot_diff_bar & n_conditions>1:
-            ref_cond = cond_order[1]
-            target_cond = cond_order[0]
-            ref = plot_data[plot_data.Condition==ref_cond].groupby('bin')
-            tar = plot_data[plot_data.Condition==target_cond].groupby('bin')
-            ref_mean = ref['Possibility of observing positive signal'].mean()
-            tar_mean = tar['Possibility of observing positive signal'].mean()
-            diff = tar_mean - ref_mean
-            diff = diff[plot_data.bin.unique()]
-            sns.barplot(x=diff.index, y=diff.values,color='grey', alpha=0.5)
+        if plot_type == 'line':
+            sns.lineplot(
+                data=plot_data,
+                x="bin",
+                sort=False,
+                y=y_col,
+                hue=hue_col,
+                hue_order=hue_order,
+                palette=palette)
+            # Plot diff bars
+            if (plot_diff_bar) & (n_conditions>1):
+                ref_cond = hue_order[0]
+                target_cond = hue_order[1]
+                ref = plot_data[plot_data[hue_col]==ref_cond].groupby('bin')
+                tar = plot_data[plot_data[hue_col]==target_cond].groupby('bin')
+                ref_mean = ref[y_col].mean()
+                tar_mean = tar[y_col].mean()
+                diff = tar_mean - ref_mean
+                diff = diff[plot_data.bin.unique()]
+                sns.barplot(x=diff.index, y=diff.values,color='grey', alpha=0.5)
+        elif plot_type == 'swarm':
+            sns.swarmplot(x='bin',y=y_col,hue=hue_col, data=plot_data,
+                          hue_order=hue_order, palette=palette, alpha=0.7,
+                          size=3)
+        elif plot_type == 'box':
+            sns.boxplot(x='bin',y=y_col,hue=hue_col, data=plot_data,
+                          hue_order=hue_order, palette=palette)
         # formatting ticks and tick labels.
         num_zones = plot_data.bin.nunique()
         # Starting with 1, getting rid of CV.
         ticks = np.linspace(0, num_zones - 1, n_ticks, dtype=int)
         tick_labels = plot_data.bin.unique()[ticks]
-        tick_labels = [x.replace("Z", "") for x in tick_labels]
         _ = plt.xticks(ticks, tick_labels)
         _ = plt.legend(bbox_to_anchor=(1, 0.5), loc="center left")
-        if save_fig:
-            figname = (
-                "+".join([x.upper() for x in markers])
-                + " in "
-                + " and ".join(folders)
-                + " zone int.png"
-            )
-            if figname is not None:
-                plt.tight_layout()
-                plt.savefig(figname, facecolor="w", dpi=300)
-                plt.close()
+        if figname is not None:
+            plt.tight_layout()
+            plt.savefig(figname, facecolor="w", dpi=300)
+            plt.close()
 
-def get_pooled_zone_int(folders, markers):
+def get_pooled_zonal_data(folders, markers, filename='zone int.csv'):
     """Prepare data for zone intensity plot.
 
     Paremeters
@@ -238,34 +244,33 @@ def get_pooled_zone_int(folders, markers):
         a list of root folders where individual image tile and associated
         analysis resutls can be found.
     markers : list
-        a list of markers to evaluate
+        a list of markers to evaluate.
+    filename : str
+        filenames to be pooled in each named folder.
 
     Returns
     ========
-    plot_data : pd.DataFrame
+    pooled_data : pd.DataFrame
         table of pooled zone intensity feature to be used in the plotting function.
     """
     if isinstance(folders, str):
         folders = [folders]
     if isinstance(markers, str):
         markers = [markers]
-    plot_data = pd.DataFrame()
+    pooled_data = pd.DataFrame()
     abs_path = os.getcwd()
     for folder in folders:
         for marker in markers:
             tif_files = sorted(
-                [
-                    x
-                    for x in os.listdir(folder)
-                    if (".tif" in x) & (marker.lower() in x.lower())
-                ]
+                [ x for x in os.listdir(folder)
+                if (".tif" in x) & (marker.lower() in x.lower())]
             )
             for img_fn in tif_files:
                 output_prefix = img_fn.replace(".tif", "")
-                _zone_int_fn = os.path.join(
-                    abs_path, folder, output_prefix, "zone int.csv"
+                _zonal_data_fn = os.path.join(
+                    abs_path, folder, output_prefix, filename
                 )
-                if not os.path.exists(_zone_int_fn):
+                if not os.path.exists(_zonal_data_fn):
                     # Attempt to fix file name inconsistency caused by
                     # mis-capped gene names. Find matched folders by
                     # attempting lower cases.
@@ -273,16 +278,17 @@ def get_pooled_zone_int(folders, markers):
                     _lc_folder = os.path.join(abs_path, folder.lower())
                     if _lc_folder in folders_lower:
                         _mapped_folder = folders[folders_lower.index(_lc_folder)]
-                        _zone_int_fn = os.path.join(
-                            abs_path, _mapped_folder, "zone int.csv"
+                        _zonal_data_fn = os.path.join(
+                            abs_path, _mapped_folder, filename
                         )
-                        print("Found match for {}: {}".format(marker, _zone_int_fn))
+                        print("Found match for {}: {}".format(marker, _zonal_data_fn))
                     else:
-                        print("{} does not exist!".format(_zone_int_fn))
+                        print("{} does not exist!".format(_zonal_data_fn))
                         continue
-                _zone_int = pd.read_csv(_zone_int_fn, index_col=0)
-                _zone_int.zone = [x.replace("*", "") for x in _zone_int.zone]
-                _zone_int.zone = _zone_int.zone.replace("*CV", "CV")
-                _zone_int["Condition"] = " ".join([folder, marker])
-                plot_data = plot_data.append(_zone_int, sort=False)
-    return plot_data
+                _zonal_data = pd.read_csv(_zonal_data_fn, index_col=0)
+                if filename == 'zone int.csv':
+                    _zonal_data.zone = [x.replace("*", "") for x in _zonal_data.zone]
+                    _zonal_data.zone = _zonal_data.zone.replace("*CV", "CV")
+                _zonal_data["Condition"] = " ".join([folder.split('/')[-1], marker])
+                pooled_data = pooled_data.append(_zonal_data, sort=False)
+    return pooled_data
