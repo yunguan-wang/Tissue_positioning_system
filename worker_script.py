@@ -17,22 +17,25 @@ if __name__ == '__main__':
     parser.add_argument('input_img', type=str,
                         help='Absolute Input TIF image to be zonated, with signal of interest at channel 0, \
                             GS at channel 1 and DAPI at channel 2')
-    parser.add_argument('-o', '--output', metavar='O', type=str, nargs='?', default='',
+    parser.add_argument('-o', '--output', type=str, nargs='?', default='',
                         help='output folder of results, if not supplied, it will be that same as the input file name.')
-    parser.add_argument('-v', '--vessel_size_factor', metavar='V', type=int, nargs='?', default=2,
+    parser.add_argument('-v', '--vessel_size_factor', type=int, nargs='?', default=2,
                         help='Vessel size threshold as x/10000 fold of image size')
-    parser.add_argument('-d', '--maximal_neighbor_distance', metavar='D', type=int, nargs='?', default=20,
+    parser.add_argument('-d', '--maximal_neighbor_distance', type=int, nargs='?', default=20,
                         help='maximal pixel distance between two neighboring masks to be considered as two separate masks.')
-    parser.add_argument('-c', '--dapi_cutoff', metavar='C', type=int, nargs='?', default=20,
+    parser.add_argument('-c', '--dapi_cutoff', type=int, nargs='?', default=20,
                         help='Dapi cutoff value for hard thresholding.')
-    parser.add_argument('-gl', '--gs_lower_limit', metavar='L', type=float, nargs='?', default=0.25,
+    parser.add_argument('-gl', '--gs_lower_limit', type=float, nargs='?', default=0.25,
                         help='The lower percentatge limit of GS signal intensity within a mask, which is used in classify CV from PV')
-    parser.add_argument('-gh', '--gs_higher_limit', metavar='H', type=float, nargs='?', default=0.75,
+    parser.add_argument('-gh', '--gs_higher_limit', type=float, nargs='?', default=0.75,
                         help='The higher percentatge limit of GS signal intensity within a mask, which is used in classify CV from PV')
-    parser.add_argument('-gs', '--gs_step', metavar='S', type=float, nargs='?', default=0.1,
+    parser.add_argument('-gs', '--gs_step', type=float, nargs='?', default=0.1,
                         help='The interval of percentage in the GS intensity features.')
-    parser.add_argument('-u', '--update', metavar='S', type=bool, nargs='?', default=False,
+    parser.add_argument('-s', '--spot_size', type=bool, nargs='?', default=False,
+                        help='If zonal spot sizes are calculated. This will only work for sparse signals.')
+    parser.add_argument('-u', '--update', type=bool, nargs='?', default=False,
                         help='Check for existing analysis results, if exist, skip the job.')
+    # Parse all arguments
     args = parser.parse_args()
     input_tif_fn = args.input_img
     output = args.output
@@ -43,8 +46,11 @@ if __name__ == '__main__':
     gs_step = args.gs_step
     update = args.update
     dapi_cutoff = args.dapi_cutoff
+    spot_size = args.spot_size
 
     output_prefix = input_tif_fn.replace(".tif", "/")
+    if output != '':
+        output_prefix = os.path.join(output,output_prefix.split('/')[-2],'')
     output_mask_fn = output_prefix + "masks.tif"
     print('Prosessing {}'.format(input_tif_fn))
     img = io.imread(input_tif_fn)
@@ -70,12 +76,14 @@ if __name__ == '__main__':
                 dapi_cutoff = 0.5 * ski.filters.threshold_otsu(img[:, :, 2])
                 masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img, vessel_size_t=vessel_size_factor, min_dist=max_dist, dark_t=dapi_cutoff)
-
+            # Save masks
             io.imsave(output_mask_fn, masks.astype(np.uint8))
         # get CV PV classification
+
         cv_features = extract_features(
             masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step)
         cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
+
         # modify CV masks to shrink their borders
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
@@ -102,6 +110,15 @@ if __name__ == '__main__':
         # Calculate zones
         zones = create_zones(masks, zone_crit, cv_labels,
                             pv_labels, num_zones=24)
+
+        # Plot zones with image
+        plot_zone_with_img(
+            img, zones, fig_prefix=output_prefix+'Marker')
+
+        # Calculate zonal spot sizes.
+        if spot_size:
+            _ = get_zonal_spot_sizes(img[:,:,0], zones, output_prefix)
+        # Calculate zonal reporter expression levels.
         zone_int = plot_zone_int_probs(
             img[:, :, 0],
             img[:, :, 2],
@@ -111,5 +128,4 @@ if __name__ == '__main__':
             prefix=output_prefix + 'Marker',
         )
         zone_int.to_csv(output_prefix + 'zone int.csv')
-        plot_zone_with_img(
-            img, zones, fig_prefix=output_prefix+'Marker')
+
