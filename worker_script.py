@@ -17,23 +17,23 @@ if __name__ == '__main__':
     parser.add_argument('input_img', type=str,
                         help='Absolute Input TIF image to be zonated, with signal of interest at channel 0, \
                             GS at channel 1 and DAPI at channel 2')
-    parser.add_argument('-o', '--output', metavar='O', type=str, nargs='?', default='',
+    parser.add_argument('-o', '--output', type=str, nargs='?', default='',
                         help='output folder of results, if not supplied, it will be that same as the input file name.')
-    parser.add_argument('-v', '--vessel_size_factor', metavar='V', type=int, nargs='?', default=2,
+    parser.add_argument('-v', '--vessel_size_factor', type=int, nargs='?', default=2,
                         help='Vessel size threshold as x/10000 fold of image size')
-    parser.add_argument('-d', '--maximal_neighbor_distance', metavar='D', type=int, nargs='?', default=20,
+    parser.add_argument('-d', '--maximal_neighbor_distance', type=int, nargs='?', default=20,
                         help='maximal pixel distance between two neighboring masks to be considered as two separate masks.')
-    parser.add_argument('-c', '--dapi_cutoff', metavar='C', type=int, nargs='?', default=20,
+    parser.add_argument('-c', '--dapi_cutoff', type=int, nargs='?', default=20,
                         help='Dapi cutoff value for hard thresholding.')
-    parser.add_argument('-gl', '--gs_lower_limit', metavar='L', type=float, nargs='?', default=0.25,
+    parser.add_argument('-gl', '--gs_lower_limit', type=float, nargs='?', default=0.25,
                         help='The lower percentatge limit of GS signal intensity within a mask, which is used in classify CV from PV')
-    parser.add_argument('-gh', '--gs_higher_limit', metavar='H', type=float, nargs='?', default=0.75,
+    parser.add_argument('-gh', '--gs_higher_limit', type=float, nargs='?', default=0.75,
                         help='The higher percentatge limit of GS signal intensity within a mask, which is used in classify CV from PV')
-    parser.add_argument('-gs', '--gs_step', metavar='S', type=float, nargs='?', default=0.1,
+    parser.add_argument('-gs', '--gs_step', type=float, nargs='?', default=0.1,
                         help='The interval of percentage in the GS intensity features.')
-    parser.add_argument('-s', '--spot_size', metavar='Z', type=bool, nargs='?', default=False,
+    parser.add_argument('-s', '--spot_size', type=bool, nargs='?', default=False,
                         help='If zonal spot sizes are calculated. This will only work for sparse signals.')
-    parser.add_argument('-u', '--update', metavar='S', type=bool, nargs='?', default=False,
+    parser.add_argument('-u', '--update', type=bool, nargs='?', default=False,
                         help='Check for existing analysis results, if exist, skip the job.')
     # Parse all arguments
     args = parser.parse_args()
@@ -49,6 +49,8 @@ if __name__ == '__main__':
     spot_size = args.spot_size
 
     output_prefix = input_tif_fn.replace(".tif", "/")
+    if output != '':
+        output_prefix = os.path.join(output,output_prefix.split('/')[-2],'')
     output_mask_fn = output_prefix + "masks.tif"
     print('Prosessing {}'.format(input_tif_fn))
     img = io.imread(input_tif_fn)
