@@ -69,10 +69,10 @@ optional arguments:
                         features. (default: 0.1)
 ```
 ## Gallery
-![Example image](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example.JPG)
+![Example image](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example.JPG =250x250)
 
-![Segmented image with CV(brown) and PV(white)](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20segmented_classfied.png)
+![Segmented image with CV(brown) and PV(white)](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20segmented_classfied.png =250x250)
 
-![Predicted lobules](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/lobules.JPG)
+![Predicted lobules](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/lobules.JPG =250x250)
 
-![Marker expression status by zones](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20signal%20intensity%20in%20zones.png)
+![Marker expression status by zones](https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20signal%20intensity%20in%20zones.png =250x250)
