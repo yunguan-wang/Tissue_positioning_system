@@ -43,10 +43,10 @@ if __name__ == '__main__':
     gs_step = args.gs_step
     update = args.update
     dapi_cutoff = args.dapi_cutoff
-
     output_prefix = input_tif_fn.replace(".tif", "/")
     output_mask_fn = output_prefix + "masks.tif"
     print('Prosessing {}'.format(input_tif_fn))
+    print('Parameters: {}'.format(args))
     img = io.imread(input_tif_fn)
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
