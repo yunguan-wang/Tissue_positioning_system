@@ -53,6 +53,7 @@ if __name__ == '__main__':
         output_prefix = os.path.join(output,output_prefix.split('/')[-2],'')
     output_mask_fn = output_prefix + "masks.tif"
     print('Prosessing {}'.format(input_tif_fn))
+    print('Parameters: {}'.format(args))
     img = io.imread(input_tif_fn)
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
