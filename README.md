@@ -18,8 +18,8 @@ Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.
 ## Install
 ```
 git clone https://github.com/yunguan-wang/liver_zone_segmentation.git
-cd liver_zone_segmentation`
-pip install -e . --upgrade`
+cd liver_zone_segmentation
+pip install -e . --upgrade
 ```
 ## Test installation
 ```
