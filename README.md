@@ -1,3 +1,5 @@
+<img src="https://github.com/zzhu33/scSplitter/blob/master/QBRC.jpg">
+
 # Game of Zones (GoZ) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
 
 ## Welcome
@@ -9,6 +11,7 @@
 * Manual identification of such patterns is not stably reproducible.
 
 * Quantification of these zonated expression pattern very time consuming
+
 
 ## Requirement
 GoZ is developed and tested in Python3.6.
