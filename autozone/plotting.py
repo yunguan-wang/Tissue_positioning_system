@@ -6,20 +6,20 @@ import numpy as np
 import pandas as pd
 import os
 
-sns.set(style='white',
-        rc={'axes.facecolor':'white', 'figure.facecolor':'white'})
+sns.set(style="white", rc={"axes.facecolor": "white", "figure.facecolor": "white"})
+
 
 def plot3channels(c1, c2, c3, fig_name=None):
     # plot the lobules
     new_img = np.zeros((c1.shape[0], c1.shape[1], 3))
-    new_img[:,:,0] = c1
-    new_img[:,:,1] = c2
-    new_img[:,:,2] = c3
+    new_img[:, :, 0] = c1
+    new_img[:, :, 1] = c2
+    new_img[:, :, 2] = c3
     ski.io.imshow(new_img)
     if fig_name is not None:
-        plt.savefig(fig_name + '.pdf',
-                    dpi=300, facecolor='w')
+        plt.savefig(fig_name + ".pdf", dpi=300, facecolor="w")
         plt.close()
+
 
 def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
     new_mask = np.zeros(labeled_mask.shape)
@@ -159,9 +159,18 @@ def plot_zone_int_probs(
         plt.close()
     return zone_int_stats
 
-def plot_pooled_zonal_data(plot_data, y_col='Possibility of observing positive signal',
-                           hue_col='Condition', hue_order = None, plot_diff_bar=True,
-                           plot_type='line', n_ticks=10, figname=None):
+
+def plot_pooled_zonal_data(
+    plot_data,
+    y_col="Possibility of observing positive signal",
+    hue_col="Condition",
+    hue_order=None,
+    plot_diff_bar=True,
+    plot_type="line",
+    n_ticks=10,
+    figname=None,
+    forced_color=None,
+):
     """Make zone intensity plot summerizing all image tiles. Optionally can be
     used to compare between conditions.
 
@@ -179,24 +188,30 @@ def plot_pooled_zonal_data(plot_data, y_col='Possibility of observing positive s
         if Tuue a bar graph representing the mean difference of each bin between conditionsis plotted.
     n_ticks : int
         number of ticks on x axis.
+    forced_color : int
+        hsl h value for color, for example, 240 is blue, and 0 is red.
     """
     # Drop CV
-    plot_data = plot_data[plot_data.zone!='CV']
+    plot_data = plot_data[plot_data.zone != "CV"]
     # sorting
-    if not isinstance(plot_data.zone.dtypes,int):
+    if not isinstance(plot_data.zone.dtypes, int):
         plot_data.zone = [x.replace("Z", "") for x in plot_data.zone.values]
     plot_data.zone = plot_data.zone.str.zfill(2)
-    plot_data = plot_data.sort_values('zone')
+    plot_data = plot_data.sort_values("zone")
 
     if len(plot_data) != 0:
         n_conditions = plot_data[hue_col].nunique()
         if hue_order is None:
             hue_order = sorted(plot_data[hue_col].unique())
-        palette = sns.diverging_palette(240, 0, sep=80,
-                                        n=n_conditions, s=75, l=50,
-                                        center='dark')
+        palette = sns.diverging_palette(
+            240, 0, sep=80, n=n_conditions, s=75, l=50, center="dark"
+        )
+        if forced_color is not None:
+            palette = sns.diverging_palette(
+                forced_color, 0, sep=80, n=1, s=75, l=50, center="dark"
+            )
         plot_data.rename(columns={"zone": "bin"}, inplace=True)
-        if plot_type == 'line':
+        if plot_type == "line":
             sns.lineplot(
                 data=plot_data,
                 x="bin",
@@ -204,25 +219,40 @@ def plot_pooled_zonal_data(plot_data, y_col='Possibility of observing positive s
                 y=y_col,
                 hue=hue_col,
                 hue_order=hue_order,
-                palette=palette)
+                palette=palette,
+            )
             # Plot diff bars
-            if (plot_diff_bar) & (n_conditions>1):
+            if (plot_diff_bar) & (n_conditions > 1):
                 ref_cond = hue_order[0]
                 target_cond = hue_order[1]
-                ref = plot_data[plot_data[hue_col]==ref_cond].groupby('bin')
-                tar = plot_data[plot_data[hue_col]==target_cond].groupby('bin')
+                ref = plot_data[plot_data[hue_col] == ref_cond].groupby("bin")
+                tar = plot_data[plot_data[hue_col] == target_cond].groupby("bin")
                 ref_mean = ref[y_col].mean()
                 tar_mean = tar[y_col].mean()
                 diff = tar_mean - ref_mean
                 diff = diff[plot_data.bin.unique()]
-                sns.barplot(x=diff.index, y=diff.values,color='grey', alpha=0.5)
-        elif plot_type == 'swarm':
-            sns.swarmplot(x='bin',y=y_col,hue=hue_col, data=plot_data,
-                          hue_order=hue_order, palette=palette, alpha=0.7,
-                          size=3)
-        elif plot_type == 'box':
-            sns.boxplot(x='bin',y=y_col,hue=hue_col, data=plot_data,
-                          hue_order=hue_order, palette=palette)
+                sns.barplot(x=diff.index, y=diff.values, color="grey", alpha=0.5)
+        # alternative plots
+        elif plot_type == "swarm":
+            sns.swarmplot(
+                x="bin",
+                y=y_col,
+                hue=hue_col,
+                data=plot_data,
+                hue_order=hue_order,
+                palette=palette,
+                alpha=0.7,
+                size=3,
+            )
+        elif plot_type == "box":
+            sns.boxplot(
+                x="bin",
+                y=y_col,
+                hue=hue_col,
+                data=plot_data,
+                hue_order=hue_order,
+                palette=palette,
+            )
         # formatting ticks and tick labels.
         num_zones = plot_data.bin.nunique()
         # Starting with 1, getting rid of CV.
@@ -235,7 +265,8 @@ def plot_pooled_zonal_data(plot_data, y_col='Possibility of observing positive s
             plt.savefig(figname, facecolor="w", dpi=300)
             plt.close()
 
-def get_pooled_zonal_data(folders, markers, filename='zone int.csv'):
+
+def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
     """Prepare data for zone intensity plot.
 
     Paremeters
@@ -262,14 +293,15 @@ def get_pooled_zonal_data(folders, markers, filename='zone int.csv'):
     for folder in folders:
         for marker in markers:
             tif_files = sorted(
-                [ x for x in os.listdir(folder)
-                if (".tif" in x) & (marker.lower() in x.lower())]
+                [
+                    x
+                    for x in os.listdir(folder)
+                    if (".tif" in x) & (marker.lower() in x.lower())
+                ]
             )
             for img_fn in tif_files:
                 output_prefix = img_fn.replace(".tif", "")
-                _zonal_data_fn = os.path.join(
-                    abs_path, folder, output_prefix, filename
-                )
+                _zonal_data_fn = os.path.join(abs_path, folder, output_prefix, filename)
                 if not os.path.exists(_zonal_data_fn):
                     # Attempt to fix file name inconsistency caused by
                     # mis-capped gene names. Find matched folders by
@@ -286,9 +318,9 @@ def get_pooled_zonal_data(folders, markers, filename='zone int.csv'):
                         print("{} does not exist!".format(_zonal_data_fn))
                         continue
                 _zonal_data = pd.read_csv(_zonal_data_fn, index_col=0)
-                if filename == 'zone int.csv':
+                if filename == "zone int.csv":
                     _zonal_data.zone = [x.replace("*", "") for x in _zonal_data.zone]
                     _zonal_data.zone = _zonal_data.zone.replace("*CV", "CV")
-                _zonal_data["Condition"] = " ".join([folder.split('/')[-1], marker])
+                _zonal_data["Condition"] = " ".join([folder.split("/")[-1], marker])
                 pooled_data = pooled_data.append(_zonal_data, sort=False)
     return pooled_data
