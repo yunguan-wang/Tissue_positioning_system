@@ -1,3 +1,5 @@
+<img src="https://github.com/zzhu33/scSplitter/blob/master/QBRC.jpg">
+
 # Game of Zones (GoZ) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
 
 ## Welcome
@@ -10,6 +12,7 @@
 
 * Quantification of these zonated expression pattern very time consuming
 
+
 ## Requirement
 GoZ is developed and tested in Python3.6.
 
@@ -18,8 +21,8 @@ Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.
 ## Install
 ```
 git clone https://github.com/yunguan-wang/liver_zone_segmentation.git
-cd liver_zone_segmentation`
-pip install -e . --upgrade`
+cd liver_zone_segmentation
+pip install -e . --upgrade
 ```
 ## Test installation
 ```
