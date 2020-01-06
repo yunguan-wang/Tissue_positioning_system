@@ -9,13 +9,10 @@ requires = [
     "scikit-learn",
     "seaborn",
     "matplotlib",
+    "czifile",
 ]
-DESCRIPTION = "Auto zoning algorithm from IF image based on vessels."
 
-os.system(
-    "pip install \
-    https://files.pythonhosted.org/packages/37/86/3d0b1829c8c24eb1a4214f098a02442209f80302766203db33c99a4681ec/czifile-2019.7.2-py2.py3-none-any.whl"
-)
+DESCRIPTION = "Auto zoning algorithm from IF image based on vessels."
 
 setup(
     name="autozone",
