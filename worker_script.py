@@ -1,7 +1,7 @@
 import argparse
-from autozone.find_zones import *
-from autozone.plotting import *
-from autozone.segmentation import *
+from goz.find_zones import *
+from goz.plotting import *
+from goz.segmentation import *
 import os
 from skimage import io
 import skimage as ski

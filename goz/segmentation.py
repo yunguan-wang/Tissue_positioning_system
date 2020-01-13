@@ -76,6 +76,9 @@ def pv_classifier(cv_features, labeled_mask):
 
 
 def extract_gs_channel(img, gs_channel=1):
+    """Fix color cross talk be using ICA
+    """
+    # Todo still not working all the time. Need to fix it
     ica = FastICA(3, random_state=0)
     ica_transformed = ica.fit_transform(img.reshape(-1, 3))
     # calculate the correlation between the transformed data with target channel.

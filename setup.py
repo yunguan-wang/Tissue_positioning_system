@@ -15,8 +15,8 @@ requires = [
 DESCRIPTION = "Auto zoning algorithm from IF image based on vessels."
 
 setup(
-    name="autozone",
-    version=0.1,
+    name="goz",
+    version=0.2,
     description=DESCRIPTION,
     url="https://github.com/yunguan-wang/liver_zone_segmentation",
     author="Yunguan Wang",
