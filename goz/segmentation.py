@@ -170,6 +170,7 @@ def segmenting_vessels_gs_assisted(
     dapi_channel=2,
     vessel_size_t=2,
     gs_channel=1,
+    gs_ica = None,
 ):
     """
     Segmentation of vessels with both dapi channel information and gs
@@ -181,7 +182,10 @@ def segmenting_vessels_gs_assisted(
     presence of central vein which is not sliced in the slide. By adding
     the gs channel information, such vessel can be recovered.
     """
-    gs_ica, _, raw_gs_ica = extract_gs_channel(img, gs_channel=gs_channel)
+    if gs_ica is None:
+        gs_ica, _, raw_gs_ica = extract_gs_channel(img, gs_channel=gs_channel)
+    else:
+        raw_gs_ica = gs_ica.copy()
     vessels = segmenting_vessels(
         img,
         dilation_t=0,
@@ -237,9 +241,7 @@ def segmenting_vessels_gs_assisted(
     while not (new_merged_mask == merged_mask).all():
         merged_mask = new_merged_mask
         print("Continue merging neighboring masks...")
-        new_merged_mask, _ = merge_neighboring_vessels(
-            merged_mask, min_dist == min_dist
-        )
+        new_merged_mask, _ = merge_neighboring_vessels(merged_mask, min_dist=min_dist)
     # Returning not only masks, but also GS_ICA channels.
     return new_merged_mask, raw_gs_ica, vessels
 
