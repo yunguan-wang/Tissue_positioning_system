@@ -1,34 +1,51 @@
-from multiprocessing import Process
+from multiprocessing import Pool
 import skimage as ski
 import numpy as np
+import os
 from goz.segmentation import *
 
 
-def worker_segmentation(
-    crop_coord, crop_img, crop_gs_ica, min_dist=10, dark_t=20, mask_prefix=""
-):
+def worker_segmentation(args):
+    crop_coord, crop_img, crop_gs_ica, max_dist, dark_t, mask_prefix, job_id = args
+    fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.tif"
+    if os.path.exists(fn):
+        print("Job {} is previously done, skipping this job.".format(job_id))
+        return
+    else:
+        print("Processing job {}...".format(job_id))
+    crop_img[crop_img==0] = 1
     crop_img_norm = ski.exposure.equalize_adapthist(crop_img)
     crop_img_norm = (crop_img_norm * 255).astype("uint8")
     masks, _, vessels = segmenting_vessels_gs_assisted(
-        crop_img_norm, min_dist=min_dist, dark_t=dark_t, gs_ica=crop_gs_ica
+        crop_img_norm, max_dist=max_dist, dark_t=dark_t, gs_ica=crop_gs_ica
     )
-    fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.png"
-    ski.io.imsave(fn, masks)
+    img = np.zeros(masks.shape+(3,), 'bool')
+    img[:,:,0] = masks
+    img[:,:,1] = vessels
+    fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.tif"
+    ski.io.imsave(fn, img)
 
 
-def mp_segmentation(img, gs_ica, valid_crops, min_dist=10, dark_t=20, ntasks=8):
-    n_batches = int(np.ceil(len(valid_crops) / ntasks))
-    for j in range(n_batches):
-        for _, crop_coord in enumerate(valid_crops):
-            top, bottom, left, right = crop_coord
-            crop_img = img[top:bottom, left:right, :]
-            crop_gs_ica = gs_ica[top:bottom, left:right]
-            p = Process(
-                target=worker_segmentation,
-                args=(crop_coord, crop_img, crop_gs_ica, min_dist, dark_t, "../Tests/"),
-            )
-            p.start()
-            print(p.pid)
-            p.join()
-        print("Batch {} finished".format(j + 1))
+def mp_segmentation(
+    img, gs_ica, valid_crops, mask_fn_prefix, max_dist=10, dark_t=20, ntasks=8
+):
+    jobs_params = []
+    for job_id, crop_coord in enumerate(valid_crops):
+        top, bottom, left, right = crop_coord
+        crop_img = img[top:bottom, left:right, :]
+        crop_gs_ica = gs_ica[top:bottom, left:right]
+        jobs_params.append(
+            [
+                crop_coord,
+                crop_img,
+                crop_gs_ica,
+                max_dist,
+                dark_t,
+                mask_fn_prefix,
+                job_id,
+            ]
+        )
+    num_processors = 8
+    p = Pool(processes=num_processors)
+    _ = p.map(worker_segmentation, jobs_params)
     return

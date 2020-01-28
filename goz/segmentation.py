@@ -1,7 +1,6 @@
 import pandas as pd
 import skimage as ski
 import numpy as np
-from skimage import io
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
 import skimage.measure as measure
@@ -109,7 +108,7 @@ def extract_gs_channel(img, gs_channel=1):
     return gs_ica, ica, raw_gs_ica
 
 
-def merge_neighboring_vessels(labeled_mask, min_dist=10):
+def merge_neighboring_vessels(labeled_mask, max_dist=10):
     """
     Calculate neares pixel to pixel distance between two nearby masks, if
     they are within the threshold, the masks will be merged.
@@ -118,7 +117,7 @@ def merge_neighboring_vessels(labeled_mask, min_dist=10):
     all_masks = sorted(np.unique(labeled_mask))[1:]
     dist_to_mask = [ndi.distance_transform_edt(labeled_mask != x) for x in all_masks]
     dist_to_mask = np.array(dist_to_mask)
-    crit = dist_to_mask < min_dist
+    crit = dist_to_mask < max_dist
     nearest_neighbors = []
     for i, mask_name in enumerate(all_masks):
         if mask_name == 0:
@@ -165,7 +164,7 @@ def merge_neighboring_vessels(labeled_mask, min_dist=10):
 def segmenting_vessels_gs_assisted(
     img,
     size_cutoff_factor=1,
-    min_dist=10,
+    max_dist=10,
     dark_t=20,
     dapi_channel=2,
     vessel_size_t=2,
@@ -228,7 +227,7 @@ def segmenting_vessels_gs_assisted(
         _min_dist_coord_idx = np.argmin(min_dist_to_mask[_region_mask])
         _min_dist_coord = region.coords[_min_dist_coord_idx]
         _min_dist_vessel_label = min_dist_label[_min_dist_coord[0], _min_dist_coord[1]]
-        if _min_dist_to_mask < min_dist:
+        if _min_dist_to_mask < max_dist:
             merged_mask[_region_mask] = _min_dist_vessel_label
         else:
             if region.filled_area > size_cutoff:
@@ -237,11 +236,11 @@ def segmenting_vessels_gs_assisted(
                 new_label += 1
     # now, merge neighboring masks
     print("Merging neighboring masks...")
-    new_merged_mask, _ = merge_neighboring_vessels(merged_mask, min_dist=min_dist)
+    new_merged_mask, _ = merge_neighboring_vessels(merged_mask, max_dist=max_dist)
     while not (new_merged_mask == merged_mask).all():
         merged_mask = new_merged_mask
         print("Continue merging neighboring masks...")
-        new_merged_mask, _ = merge_neighboring_vessels(merged_mask, min_dist=min_dist)
+        new_merged_mask, _ = merge_neighboring_vessels(merged_mask, max_dist=max_dist)
     # Returning not only masks, but also GS_ICA channels.
     return new_merged_mask, raw_gs_ica, vessels
 

@@ -1,7 +1,6 @@
 import pandas as pd
 import skimage as ski
 import numpy as np
-from skimage import io
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
 import skimage.measure as measure
