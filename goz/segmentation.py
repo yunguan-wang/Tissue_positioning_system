@@ -169,7 +169,7 @@ def segmenting_vessels_gs_assisted(
     dapi_channel=2,
     vessel_size_t=2,
     gs_channel=1,
-    gs_ica = None,
+    gs_ica=None,
 ):
     """
     Segmentation of vessels with both dapi channel information and gs

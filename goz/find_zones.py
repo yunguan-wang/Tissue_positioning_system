@@ -155,11 +155,13 @@ def find_orphans(masks, cv_labels, pv_labels, orphan_crit=400):
     return orphans
 
 
-def create_zones(masks, zone_crit, cv_labels, pv_labels, zone_breaks=None, num_zones=5):
+def create_zones(
+    masks, zone_crit, cv_labels, pv_labels, zone_break_type="equal_length", num_zones=5
+):
     # CV are labeled as -1
     # PV are labeled as 255
     zones = np.zeros(masks.shape[:2])
-    if zone_breaks is None:
+    if zone_break_type == "equal_length":
         for i in range(num_zones):
             t0 = i / num_zones
             t1 = (i + 1) / num_zones
@@ -167,19 +169,22 @@ def create_zones(masks, zone_crit, cv_labels, pv_labels, zone_breaks=None, num_z
                 zones[zone_crit > t0] = i + 1
             else:
                 zones[(zone_crit > t0) & (zone_crit <= t1)] = i + 1
-    else:
+    elif zone_break_type == "equal_quantile":
+        quantiles = np.linspace(0, 1, num_zones + 1)
+        zone_breaks = np.quantile(zone_crit, quantiles)
         for i, zone_break in enumerate(zone_breaks[:-1]):
             zones[(zone_crit > zone_break) & (zone_crit <= zone_breaks[i + 1])] = i + 1
     zones[np.isin(masks, cv_labels)] = -1
     zones[np.isin(masks, pv_labels)] = 255
     return zones
 
-def find_lobules(cv_masks, outlier_t = 0.1, lobule_name='lobule'):
+
+def find_lobules(cv_masks, outlier_t=0.1, lobule_name="lobule"):
     """Find lobules based on watershed on known CV masks.
 
     Returns the lobule masks and lobule sizes.
     """
-    cv_dist = ndi.distance_transform_edt(cv_masks==0)
+    cv_dist = ndi.distance_transform_edt(cv_masks == 0)
     # get centroid of each CV, use it as the watershed peaks.
     markers = np.zeros(cv_masks.shape)
     for region in ski.measure.regionprops(cv_masks):
@@ -190,24 +195,27 @@ def find_lobules(cv_masks, outlier_t = 0.1, lobule_name='lobule'):
     lobules = ski.morphology.watershed(cv_dist, markers)
     # Find lobule boundaries via evaluating pixel greadients.
     grads = ski.filters.rank.gradient(lobules, ski.morphology.disk(5))
-    lobule_edges = grads!=0
+    lobule_edges = grads != 0
     # calculating lobule sizes
     lobule_sizes = pd.DataFrame()
     for region in ski.measure.regionprops(lobules):
-        lobule_sizes.loc[region.label, 'lobule_size'] = region.area
+        lobule_sizes.loc[region.label, "lobule_size"] = region.area
     cutoff_low = lobule_sizes.lobule_size.quantile(outlier_t)
     cutoff_high = lobule_sizes.lobule_size.quantile(1 - outlier_t)
-    lobule_sizes = lobule_sizes[(lobule_sizes.lobule_size >= cutoff_low) &
-                                (lobule_sizes.lobule_size <= cutoff_high)]
+    lobule_sizes = lobule_sizes[
+        (lobule_sizes.lobule_size >= cutoff_low)
+        & (lobule_sizes.lobule_size <= cutoff_high)
+    ]
     lobule_sizes = np.sqrt(lobule_sizes)
-    lobule_sizes['lobule_name'] = lobule_name
+    lobule_sizes["lobule_name"] = lobule_name
     return lobules, lobule_sizes, lobule_edges
+
 
 def get_zonal_spot_sizes(int_img, zones, output_prefix):
     int_cutoff = ski.filters.threshold_otsu(int_img)
     int_signal_mask = int_img > int_cutoff
     labeled_int_signal_mask = ski.morphology.label(int_signal_mask)
-    zones[(zones<0)|(zones==255)]=0
+    zones[(zones < 0) | (zones == 255)] = 0
     spot_sizes = []
     zone_lables = []
     for region in ski.measure.regionprops(labeled_int_signal_mask):
@@ -215,9 +223,43 @@ def get_zonal_spot_sizes(int_img, zones, output_prefix):
         avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
         spot_sizes.append(region.equivalent_diameter)
         zone_lables.append(avg_zone_number)
-    spot_sizes = pd.DataFrame({'spot_size': spot_sizes,
-                            'zone': zone_lables})
-    spot_sizes = spot_sizes[spot_sizes.zone!=0]
-    spot_sizes = spot_sizes.sort_values('zone')
-    spot_sizes.to_csv(output_prefix+'spot_sizes.csv')
+    spot_sizes = pd.DataFrame({"spot_size": spot_sizes, "zone": zone_lables})
+    spot_sizes = spot_sizes[spot_sizes.zone != 0]
+    spot_sizes = spot_sizes.sort_values("zone")
+    spot_sizes.to_csv(output_prefix + "spot_sizes.csv")
     return spot_sizes
+
+
+def calculate_zone_crit(cv_masks, pv_masks, tolerance=50):
+    cv_dist = ndi.distance_transform_edt(cv_masks == 0)
+    pv_dist = ndi.distance_transform_edt(pv_masks == 0)
+    cv_zones = np.zeros(cv_masks.shape, "uint8")
+    pv_zones = np.zeros(cv_masks.shape, "uint8")
+    # Iteratively expand a radius cutoff to assign regions around CV or PV into
+    # bands of different distance.
+    for _dist, _zone, _destination_mask in zip(
+        [cv_dist, pv_dist], [cv_zones, pv_zones], [pv_masks, cv_masks]
+    ):
+        updatable = ~np.zeros(_dist.shape, "bool")
+        i = 1
+        while True:
+            if updatable.sum() == 0:
+                print("All image region covered, stop expansion")
+                break
+            elif ((_destination_mask != 0) * updatable).sum() == 0:
+                print("All opposite masks covered, stop expansion")
+                break
+            elif i > tolerance:
+                print("Max distance reached")
+                break
+            r = i * 10
+            _expansion_mask = np.logical_and(updatable, _dist < r)
+            _zone[_expansion_mask] = i
+            updatable[_expansion_mask] = False
+            i += 1
+    zone_crit = np.zeros(updatable.shape)
+    orphans = np.logical_or(cv_zones == 0, pv_zones == 0)
+    zone_crit[~orphans] = np.log2(cv_zones[~orphans] / pv_zones[~orphans])
+    zone_crit = (zone_crit - zone_crit.min()) / (zone_crit.max() - zone_crit.min())
+    zone_crit[orphans] = 0
+    return zone_crit

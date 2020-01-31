@@ -9,16 +9,19 @@ import os
 sns.set(style="white", rc={"axes.facecolor": "white", "figure.facecolor": "white"})
 
 
-def plot3channels(c1, c2, c3, fig_name=None):
+def plot3channels(c1, c2, c3, fig_name=None, return_array=False):
     # plot the lobules
-    new_img = np.zeros((c1.shape[0], c1.shape[1], 3))
-    new_img[:, :, 0] = c1
-    new_img[:, :, 1] = c2
-    new_img[:, :, 2] = c3
+    new_img = np.zeros((c1.shape[0], c1.shape[1], 3), dtype="uint8")
+    for i, _array in enumerate([c1, c2, c3]):
+        _array = _array + 0.0
+        _array = (255 * _array / _array.max()).astype("uint8")
+        new_img[:, :, i] = _array
     ski.io.imshow(new_img)
     if fig_name is not None:
         plt.savefig(fig_name + ".pdf", dpi=300, facecolor="w")
         plt.close()
+    if return_array:
+        return new_img
 
 
 def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
@@ -36,20 +39,27 @@ def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
         plt.close()
 
 
-def plot_zone_with_img(img, zones, fig_prefix=""):
+def plot_zone_with_img(img, zones, fig_prefix=None, tomato_channel=0, **kwargs):
     plot_zones = zones.copy()
-    n_zones = np.unique(zones).shape[0] - 1
-    plot_zones[plot_zones == -1] = n_zones + 2
-    plot_zones[plot_zones == 255] = n_zones + 1
-    plot_zones = plot_zones * 255 / (n_zones + 4)
-    plt.imshow(img)
-    plt.imshow(plot_zones, alpha=0.5)
-    if fig_prefix != "":
-        plt.savefig(fig_prefix + " zones with image.png", dpi=300)
-        plt.close()
-    plt.imshow(plot_zones)
-    plt.savefig(fig_prefix + " zones only.png", dpi=300)
-    plt.close()
+    tomato = img[:, :, tomato_channel]
+    tomato = tomato / 4
+    tomato[0, 0] = 255
+    vessel = np.zeros(zones.shape, "uint8")
+    vessel[plot_zones == -1] = 0.5
+    vessel[plot_zones == 255] = 2
+    plot_zones[np.isin(plot_zones, [-1, 0, 255])] = 0
+    plot_zones = 1 + plot_zones.max() - plot_zones
+    plot_zones[plot_zones == plot_zones.max()] = 0
+    return plot3channels(tomato, vessel, plot_zones, fig_prefix, **kwargs)
+
+
+def plot_zones_only(zones, fig_prefix=None):
+    plot_zones = zones.copy()
+    # zone -1 is CV, and zone 255 is PV
+    c1 = plot_zones == -1
+    c2 = plot_zones == 255
+    plot_zones[np.isin(plot_zones, [-1, 0, 255])] = 0
+    plot3channels(plot_zones, c1, c2, fig_prefix)
 
 
 def plot_zone_int(

@@ -190,28 +190,40 @@ if __name__ == "__main__":
     )
     cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], good_masks)
     # modify CV masks to shrink their borders
+    cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
     pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
-    final_masks = shrink_cv_masks(good_masks, pv_masks, vessels)
+    good_masks = shrink_cv_masks(cv_masks, pv_masks, vessels)
+    cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
+    pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
     plot_pv_cv(final_masks, cv_labels, img, prefix=output_prefix)
 
+    # find lobules
+    _, lobules_sizes, lobule_edges = find_lobules(
+        cv_masks, lobule_name=output_prefix.replace(".tif", "")
+    )
+    lobules_sizes.to_csv(output_prefix + "lobule_sizes.csv")
+    plot3channels(
+        lobule_edges, cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "lobules"
+    )
+
     # Defining zones
-    coords_pixel, coords_cv, coords_pv = find_pv_cv_coords(
-        final_masks, cv_labels, pv_labels
-    )
-    orphans = find_orphans(final_masks, cv_labels, pv_labels, orphan_crit=1000)
-    zone_crit = get_distance_projection(
-        coords_pixel, coords_cv, coords_pv, cosine_filter=True
-    )
-    zone_crit[final_masks != 0] = -1
-    zone_crit[(zone_crit > 1) | (zone_crit < 0)] = -1
-    zone_crit[orphans] = -1
+    # Calculate distance projections
+    #! orphan cut off set at 550
+    zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
 
     # Calculate zones
-    zones = create_zones(final_masks, zone_crit, cv_labels, pv_labels, num_zones=9)
+    zones = create_zones(
+        masks,
+        zone_crit,
+        cv_labels,
+        pv_labels,
+        zone_break_type="equal_quantile",
+        num_zones=24,
+    )
 
     # Plot zones with image
     plot_zone_with_img(img, zones, fig_prefix=output_prefix + "Marker")
-
+    plot_zones_only(zones, fig_prefix=output_prefix + " zones only Marker")
     # Calculate zonal spot sizes.
     if spot_size:
         _ = get_zonal_spot_sizes(img[:, :, 0], zones, output_prefix)

@@ -13,15 +13,15 @@ def worker_segmentation(args):
         return
     else:
         print("Processing job {}...".format(job_id))
-    crop_img[crop_img==0] = 1
+    crop_img[crop_img == 0] = 1
     crop_img_norm = ski.exposure.equalize_adapthist(crop_img)
     crop_img_norm = (crop_img_norm * 255).astype("uint8")
     masks, _, vessels = segmenting_vessels_gs_assisted(
         crop_img_norm, max_dist=max_dist, dark_t=dark_t, gs_ica=crop_gs_ica
     )
-    img = np.zeros(masks.shape+(3,), 'bool')
-    img[:,:,0] = masks
-    img[:,:,1] = vessels
+    img = np.zeros(masks.shape + (3,), "bool")
+    img[:, :, 0] = masks
+    img[:, :, 1] = vessels
     fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.tif"
     ski.io.imsave(fn, img)
 
