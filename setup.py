@@ -16,7 +16,7 @@ DESCRIPTION = "Auto zoning algorithm from IF image based on vessels."
 
 setup(
     name="goz",
-    version=0.2,
+    version=0.3,
     description=DESCRIPTION,
     url="https://github.com/yunguan-wang/liver_zone_segmentation",
     author="Yunguan Wang",

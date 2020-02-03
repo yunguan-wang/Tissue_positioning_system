@@ -160,7 +160,7 @@ def mask_pruning(overall_masks, vessel_size_l):
     props["circularity"] = np.pi * 4 * props.area / np.power(props.perimeter, 2)
     valid_props = props[props.area > vessel_size_l].copy()
     print(
-        "{} out of {} makss are removed due to size.".format(
+        "{} out of {} masks are kept due to size.".format(
             valid_props.shape[0], props.shape[0]
         )
     )

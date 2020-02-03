@@ -182,8 +182,10 @@ if __name__ == "__main__":
     overall_masks, vessels = pool_masks_from_crops(
         img, crop_mask_files, padding=padding
     )
-    good_masks = mask_pruning(overall_masks, vessel_size_l)
-
+    #! vessel masks is not pruned!!!
+    good_masks = mask_pruning(overall_masks, vessel_size_l).astype("uint8")
+    vessels = vessels * (good_masks!=0)
+    good_masks = ski.measure.label(good_masks)
     # CV, PV classification
     cv_features = extract_features(
         good_masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step
@@ -195,16 +197,16 @@ if __name__ == "__main__":
     good_masks = shrink_cv_masks(cv_masks, pv_masks, vessels)
     cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
     pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
-    plot_pv_cv(final_masks, cv_labels, img, prefix=output_prefix)
+    plot_pv_cv(good_masks, cv_labels, img, prefix=output_prefix)
 
-    # find lobules
-    _, lobules_sizes, lobule_edges = find_lobules(
-        cv_masks, lobule_name=output_prefix.replace(".tif", "")
-    )
-    lobules_sizes.to_csv(output_prefix + "lobule_sizes.csv")
-    plot3channels(
-        lobule_edges, cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "lobules"
-    )
+    # find lobules, currently ignored for large image
+    # cv_masks = cv_masks.astype('uint8')
+    # _, lobules_sizes, lobule_edges = find_lobules(
+    #     cv_masks, lobule_name=output_prefix)
+    # lobules_sizes.to_csv(output_prefix + "lobule_sizes.csv")
+    # plot3channels(
+    #     lobule_edges, cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "lobules"
+    # )
 
     # Defining zones
     # Calculate distance projections
@@ -212,18 +214,12 @@ if __name__ == "__main__":
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
 
     # Calculate zones
-    zones = create_zones(
-        masks,
-        zone_crit,
-        cv_labels,
-        pv_labels,
-        zone_break_type="equal_quantile",
-        num_zones=24,
-    )
+    zones = create_zones(good_masks,zone_crit,cv_labels,pv_labels,
+                         zone_break_type="equal_quantile",num_zones=24,)
 
     # Plot zones with image
-    plot_zone_with_img(img, zones, fig_prefix=output_prefix + "Marker")
-    plot_zones_only(zones, fig_prefix=output_prefix + " zones only Marker")
+    plot_zone_with_img(img, zones, fig_prefix=output_prefix + "Zones with marker")
+    plot_zones_only(zones, fig_prefix=output_prefix + " zones only")
     # Calculate zonal spot sizes.
     if spot_size:
         _ = get_zonal_spot_sizes(img[:, :, 0], zones, output_prefix)

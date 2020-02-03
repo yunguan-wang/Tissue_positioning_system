@@ -18,8 +18,12 @@ def plot3channels(c1, c2, c3, fig_name=None, return_array=False):
         new_img[:, :, i] = _array
     ski.io.imshow(new_img)
     if fig_name is not None:
-        plt.savefig(fig_name + ".pdf", dpi=300, facecolor="w")
-        plt.close()
+        if '.png' not in fig_name:
+            plt.savefig(fig_name + ".pdf", dpi=300, facecolor="w")
+            plt.close()
+        else:
+            plt.savefig(fig_name, dpi=300, facecolor="w")
+            plt.close()
     if return_array:
         return new_img
 
