@@ -245,34 +245,27 @@ def segmenting_vessels_gs_assisted(
     return new_merged_mask, raw_gs_ica, vessels
 
 
-def shrink_cv_masks(cv_masks, pv_masks, vessels):
-    new_masks = np.zeros(cv_masks.shape)
-    vessel_mask = vessels != 0
+def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels):
+    new_masks = np.zeros(labeled_cv_masks.shape)
+    if vessels.dtype != 'bool':
+        vessels = vessels != 0
     # shrinking CV masks
-    for _mask in np.unique(cv_masks):
-        if _mask == 0:
-            continue
-        else:
-            new_mask_size = ((cv_masks == _mask) & vessel_mask).sum()
-            old_mask_size = (cv_masks == _mask).sum()
-            if new_mask_size < 0.01 * old_mask_size:
-                new_masks[cv_masks == _mask] = _mask
+    for _masks, _mask_type in zip([labeled_cv_masks,labeled_pv_masks],
+                                  ['cv','pv']):
+        for region in ski.measure.regionprops(_masks):
+            if region.label == 0:
+                continue
+            min_row, min_col, max_row, max_col = region.bbox
+            area_mask = region.area
+            area_vessel = vessels[min_row:max_row,min_col:max_col].sum()
+            area_image = region.image
+            vessel_image = vessels[min_row:max_row,min_col:max_col]
+            if (_mask_type == 'cv') & (area_vessel/area_mask < 0.1):
+                # if the mask is a CV mask and there is a drastic reduction when look
+                # at vessel mask, it means the mask is still a CV mask but the vessel
+                # if not sliced, thus we keep the whole CV mask
+                new_masks[min_row:max_row,min_col:max_col][region_image] = region.label
             else:
-                # if the new mask is not drastically reduced, meaning it is a vesseled mask
-                # only the vesseled part will be kept
-                new_masks[(cv_masks == _mask) & vessel_mask] = _mask
-
-    # shrinking PV masks
-    for _mask in np.unique(pv_masks):
-        if _mask == 0:
-            continue
-        else:
-            new_mask_size = ((pv_masks == _mask) & vessel_mask).sum()
-            old_mask_size = (pv_masks == _mask).sum()
-            if new_mask_size < 0.01 * old_mask_size:
-                new_masks[pv_masks == _mask] = _mask
-            else:
-                # if the new mask is not drastically reduced, meaning it is a vesseled mask
-                # only the vesseled part will be kept
-                new_masks[(pv_masks == _mask) & vessel_mask] = _mask
+                # otherwise, only the vesseled part will be kept
+                new_masks[min_row:max_row,min_col:max_col][vessel_image] = region.label
     return new_masks
