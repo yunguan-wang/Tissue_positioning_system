@@ -157,7 +157,7 @@ if __name__ == "__main__":
         os.mkdir(output_prefix)
 
     img = io.imread(input_tif_fn)
-    vessel_size_l = 4 * width * height / 10000
+    vessel_size_l = 2 * width * height / 10000
     # find valid image crops
     valid_crops = find_valid_crops(img[:, :, 2])
     # extract gs channel
@@ -218,8 +218,8 @@ if __name__ == "__main__":
                          zone_break_type="equal_quantile",num_zones=24,)
 
     # Plot zones with image
-    plot_zone_with_img(img, zones, fig_prefix=output_prefix + "Zones with marker")
-    plot_zones_only(zones, fig_prefix=output_prefix + " zones only")
+    plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")
+    plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
     # Calculate zonal spot sizes.
     if spot_size:
         _ = get_zonal_spot_sizes(img[:, :, 0], zones, output_prefix)

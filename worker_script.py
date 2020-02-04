@@ -143,7 +143,7 @@ if __name__ == "__main__":
                 masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img,
                     vessel_size_t=vessel_size_factor,
-                    min_dist=max_dist,
+                    max_dist=max_dist,
                     dark_t=dapi_cutoff,
                 )
             except:
@@ -154,7 +154,7 @@ if __name__ == "__main__":
                 masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img,
                     vessel_size_t=vessel_size_factor,
-                    min_dist=max_dist,
+                    max_dist=max_dist,
                     dark_t=dapi_cutoff,
                 )
             # Save masks
@@ -175,6 +175,7 @@ if __name__ == "__main__":
         plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
 
         # find lobules
+        cv_masks = cv_masks.astype('uint8')
         _, lobules_sizes, lobule_edges = find_lobules(
             cv_masks, lobule_name=output_prefix.replace(".tif", "")
         )
@@ -201,8 +202,8 @@ if __name__ == "__main__":
         )
 
         # Plot zones with image
-        plot_zone_with_img(img, zones, fig_prefix=output_prefix + "Marker")
-        plot_zones_only(zones, fig_prefix=output_prefix + " zones only Marker")
+        plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")
+        plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
         # Calculate zonal spot sizes.
         if spot_size:
             _ = get_zonal_spot_sizes(img[:, :, 0], zones, output_prefix)

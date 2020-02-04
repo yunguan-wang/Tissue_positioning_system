@@ -49,8 +49,8 @@ def plot_zone_with_img(img, zones, fig_prefix=None, tomato_channel=0, **kwargs):
     tomato = tomato / 4
     tomato[0, 0] = 255
     vessel = np.zeros(zones.shape, "uint8")
-    vessel[plot_zones == -1] = 0.5
-    vessel[plot_zones == 255] = 2
+    vessel[plot_zones == -1] = 2
+    vessel[plot_zones == 255] = 0.5
     plot_zones[np.isin(plot_zones, [-1, 0, 255])] = 0
     plot_zones = 1 + plot_zones.max() - plot_zones
     plot_zones[plot_zones == plot_zones.max()] = 0

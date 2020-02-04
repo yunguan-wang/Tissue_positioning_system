@@ -264,7 +264,7 @@ def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels):
                 # if the mask is a CV mask and there is a drastic reduction when look
                 # at vessel mask, it means the mask is still a CV mask but the vessel
                 # if not sliced, thus we keep the whole CV mask
-                new_masks[min_row:max_row,min_col:max_col][region_image] = region.label
+                new_masks[min_row:max_row,min_col:max_col][area_image] = region.label
             else:
                 # otherwise, only the vesseled part will be kept
                 new_masks[min_row:max_row,min_col:max_col][vessel_image] = region.label
