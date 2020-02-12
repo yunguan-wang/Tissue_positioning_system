@@ -155,7 +155,8 @@ if __name__ == "__main__":
         output_prefix = output
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
-
+    print('Processing {}'.format(input_tif_fn))
+    print(args)
     img = io.imread(input_tif_fn)
     vessel_size_l = 2 * width * height / 10000
     # find valid image crops
