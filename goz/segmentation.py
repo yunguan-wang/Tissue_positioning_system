@@ -242,6 +242,14 @@ def segmenting_vessels_gs_assisted(
         print("Continue merging neighboring masks...")
         new_merged_mask, _ = merge_neighboring_vessels(merged_mask, max_dist=max_dist)
     # Returning not only masks, but also GS_ICA channels.
+    
+    # getting rid of very small masks formed by GS
+    masks_sizes = pd.DataFrame(
+        ski.measure.regionprops_table(new_merged_mask,properties=['label','area','centroid'])
+        )
+    small_masks = masks_sizes[masks_sizes.area<size_cutoff].label.values
+    new_merged_mask[np.isin(masks,small_masks)] = 0
+
     return new_merged_mask, raw_gs_ica, vessels
 
 
@@ -256,11 +264,11 @@ def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels):
             if region.label == 0:
                 continue
             min_row, min_col, max_row, max_col = region.bbox
-            area_mask = region.area
+            area = region.area
             area_vessel = vessels[min_row:max_row,min_col:max_col].sum()
             area_image = region.image
-            vessel_image = vessels[min_row:max_row,min_col:max_col]
-            if (_mask_type == 'cv') & (area_vessel/area_mask < 0.1):
+            vessel_image = vessels[min_row:max_row,min_col:max_col] & region.image
+            if (_mask_type == 'cv') & (area_vessel/area < 0.1):
                 # if the mask is a CV mask and there is a drastic reduction when look
                 # at vessel mask, it means the mask is still a CV mask but the vessel
                 # if not sliced, thus we keep the whole CV mask
