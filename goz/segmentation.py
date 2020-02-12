@@ -64,7 +64,7 @@ def extract_features(labeled_mask, img, q1=0.75, q2=1, step=0.05):
 
 def pv_classifier(cv_features, labeled_mask):
     km = KMeans(2)
-    pca = PCA(2)
+    pca = PCA(2,whiten=True)
     gs_pca = pca.fit_transform(scale(cv_features))
     labels = km.fit_predict(gs_pca)
     class_median_int = cv_features.groupby(labels).I0.median().sort_values()
@@ -242,19 +242,19 @@ def segmenting_vessels_gs_assisted(
         print("Continue merging neighboring masks...")
         new_merged_mask, _ = merge_neighboring_vessels(merged_mask, max_dist=max_dist)
     # Returning not only masks, but also GS_ICA channels.
-    
+
     # getting rid of very small masks formed by GS
     masks_sizes = pd.DataFrame(
         ski.measure.regionprops_table(new_merged_mask,properties=['label','area','centroid'])
         )
     small_masks = masks_sizes[masks_sizes.area<size_cutoff].label.values
-    new_merged_mask[np.isin(masks,small_masks)] = 0
+    new_merged_mask[np.isin(new_merged_mask,small_masks)] = 0
 
     return new_merged_mask, raw_gs_ica, vessels
 
 
 def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels):
-    new_masks = np.zeros(labeled_cv_masks.shape)
+    new_masks = np.zeros(labeled_cv_masks.shape,'uint8')
     if vessels.dtype != 'bool':
         vessels = vessels != 0
     # shrinking CV masks
