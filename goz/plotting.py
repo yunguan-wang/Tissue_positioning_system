@@ -117,10 +117,14 @@ def plot_zone_int_probs(
     if dapi_cutoff == "otsu":
         dapi_cutoff = ski.filters.threshold_otsu(dapi_int)
     int_signal_mask = int_img > int_cutoff
-    zone_int_stats = pd.DataFrame(columns=["zone"])
+
     total_pos_int = (
         (zone_mask != 0) & int_signal_mask & (dapi_int > dapi_cutoff)
     ).sum()
+    # initialize the zone int dataframe
+    zone_names = ['Z' + str(int(zone)) for zone in sorted(np.unique(zone_mask))[1:]]
+    zone_names = ['CV'] + zone_names + ['PV']
+    zone_int_stats = pd.DataFrame(zone_names, columns=["zone"], index=np.arange(len(zone_names)))
     for zone in np.unique(zone_mask):
         if zone == 0:
             continue
@@ -135,26 +139,15 @@ def plot_zone_int_probs(
         # weighted possibility of a pixel being signal positive
         # the weight is the pecentage of pixels in the zone being dapi positive
         _percent_pos = 100 * _num_pos_px / _num_total_px
-        _zone_ints = pd.DataFrame(
-            [_percent_pos], columns=["Possibility of observing positive signal"]
-        )
-        if zone == -1:
-            _zone_ints["zone"] = "CV"
-        elif zone == 255:
-            _zone_ints["zone"] = "PV"
-        else:
-            _zone_ints["zone"] = "Z" + str(int(zone))
-        _zone_ints["percent_valid"] = 100 * _num_valid_px / _num_total_px
-        _zone_ints["percent_postive_in_zone"] = 100 * _num_pos_px / total_pos_int
-        zone_int_stats = zone_int_stats.append(_zone_ints, ignore_index=True)
+        zone_int_stats["Possibility of observing positive signal"] = _percent_pos
+        zone_int_stats["percent_valid"] = 100 * _num_valid_px / _num_total_px
+        zone_int_stats["percent_postive_in_zone"] = 100 * _num_pos_px / total_pos_int
+
+    # label bad regions with *
     zone_int_stats.loc[zone_int_stats.percent_valid < 10, "zone"] = (
         "*" + zone_int_stats.loc[zone_int_stats.percent_valid < 10, "zone"]
     )
     if plot_type == "probs":
-        # smoothing the curving with polynomial fit
-        poly = np.polyfit(zone_int_stats.index, zone_int_stats.iloc[:, 0], 3)
-        poly_y = np.poly1d(poly)(zone_int_stats.index)
-        # zone_int_stats["Possibility of observing positive signal"] = poly_y
         sns.lineplot(
             data=zone_int_stats,
             y="Possibility of observing positive signal",
@@ -162,9 +155,6 @@ def plot_zone_int_probs(
             sort=False,
         )
     else:
-        poly = np.polyfit(zone_int_stats.index, zone_int_stats.iloc[:, 1], 3)
-        poly_y = np.poly1d(poly)(zone_int_stats.index)
-        # zone_int_stats["percent_postive_in_zone"] = poly_y
         sns.lineplot(
             data=zone_int_stats, y="percent_postive_in_zone", x="zone", sort=False
         )
@@ -207,6 +197,7 @@ def plot_pooled_zonal_data(
     """
     # Drop CV
     plot_data = plot_data[plot_data.zone != "CV"]
+    plot_data = plot_data[plot_data.zone != "PV"]
     # sorting
     if not isinstance(plot_data.zone.dtypes, int):
         plot_data.zone = [x.replace("Z", "") for x in plot_data.zone.values]
