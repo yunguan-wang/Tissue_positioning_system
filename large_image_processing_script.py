@@ -1,6 +1,7 @@
 import pandas as pd
 from skimage import io
 import skimage as ski
+from scipy import ndimage
 import numpy as np
 import os
 from goz.segmentation import *
@@ -163,6 +164,12 @@ if __name__ == "__main__":
     valid_crops = find_valid_crops(img[:, :, 2])
     # extract gs channel
     gs_ica, _, _ = extract_gs_channel(img)
+    
+    # save gs_ica
+    io.imshow(gs_ica)
+    plt.savefig(output_prefix+'GS_ica.pdf')
+    plt.close()
+
     # multiprocessing each image crop
     mp_segmentation(
         img,
@@ -213,6 +220,11 @@ if __name__ == "__main__":
     # Calculate distance projections
     #! orphan cut off set at 550
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
+    
+    # getting tissue boundry limit on the zone crits
+    img_border_mask = np.max(img,axis=(2)) > 0
+    img_border_mask_filled = ndimage.binary_fill_holes(img_border_mask).astype(int)
+    zone_crit = zone_crit * img_border_mask_filled
 
     # Calculate zones
     zones = create_zones(good_masks,zone_crit,cv_labels,pv_labels,
