@@ -39,7 +39,7 @@ def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
 	plt.imshow(new_mask, cmap="Greys", alpha=0.7)
 	plt.imshow((labeled_mask != 0 - new_mask), alpha=0.5)
 	if prefix != "":
-		plt.savefig(prefix + "segmented_classfied.png", dpi=300)
+		plt.savefig(prefix + "segmented_classfied.pdf", dpi=300)
 		plt.close()
 
 
@@ -122,12 +122,12 @@ def plot_zone_int_probs(
 		(zone_mask != 0) & int_signal_mask & (dapi_int > dapi_cutoff)
 	).sum()
 	# initialize the zone int dataframe
-	zone_names = ['Z' + str(int(zone)) for zone in sorted(np.unique(zone_mask))[1:]]
-	zone_names = ['CV'] + zone_names + ['PV']
+	n_zones = len(np.unique(zone_mask))-3
+	zone_names = ['Z' + str(int(zone)) for zone in range(1,1+n_zones)]
+	# zone_names = ['CV'] + zone_names + ['PV']
 	zone_int_stats = pd.DataFrame(zone_names, columns=["zone"], index=np.arange(len(zone_names)))
-	for zone in np.unique(zone_mask):
-		if zone == 0:
-			continue
+	for idx,row in zone_int_stats.iterrows():
+		zone = int(row.zone[1:])
 		# pixels in zones
 		_zone_px_mask = zone_mask == zone
 		# valid pixels in zone where it is dapi positive
@@ -138,10 +138,10 @@ def plot_zone_int_probs(
 		_num_pos_px = int_signal_mask[_valid_zone_px_mask].sum()
 		# weighted possibility of a pixel being signal positive
 		# the weight is the pecentage of pixels in the zone being dapi positive
-		_percent_pos = 100 * _num_pos_px / _num_total_px
-		zone_int_stats["Relative intensity in zone"] = _percent_pos
-		zone_int_stats["percent_valid"] = 100 * _num_valid_px / _num_total_px
-		zone_int_stats["percent_postive_in_zone"] = 100 * _num_pos_px / total_pos_int
+		_percent_pos = 100 * _num_pos_px / _num_valid_px
+		zone_int_stats.loc[idx, "percent of tomato area in zone"] = _percent_pos
+		zone_int_stats.loc[idx, "percent_valid"] = 100 * _num_valid_px / _num_total_px
+		zone_int_stats.loc[idx, "percent_postive_in_zone"] = 100 * _num_pos_px / total_pos_int
 
 	# label bad regions with *
 	zone_int_stats.loc[zone_int_stats.percent_valid < 10, "zone"] = (
@@ -150,7 +150,7 @@ def plot_zone_int_probs(
 	if plot_type == "probs":
 		sns.lineplot(
 			data=zone_int_stats,
-			y="Relative intensity in zone",
+			y="percent of tomato area in zone",
 			x="zone",
 			sort=False,
 		)
@@ -166,7 +166,7 @@ def plot_zone_int_probs(
 
 def plot_pooled_zonal_data(
 	plot_data,
-	y_col="Relative intensity in zone",
+	y_col="percent of tomato area in zone",
 	hue_col="Condition",
 	hue_order=None,
 	plot_diff_bar=True,
@@ -174,6 +174,7 @@ def plot_pooled_zonal_data(
 	n_ticks=10,
 	figname=None,
 	forced_color=None,
+	forced_palette=None,
 ):
 	"""Make zone intensity plot summerizing all image tiles. Optionally can be
 	used to compare between conditions.
@@ -208,6 +209,7 @@ def plot_pooled_zonal_data(
 		n_conditions = plot_data[hue_col].nunique()
 		if hue_order is None:
 			hue_order = sorted(plot_data[hue_col].unique())
+		# setting pallete
 		palette = sns.diverging_palette(
 			240, 0, sep=80, n=n_conditions, s=75, l=50, center="dark"
 		)
@@ -215,6 +217,8 @@ def plot_pooled_zonal_data(
 			palette = sns.diverging_palette(
 				forced_color, 0, sep=80, n=1, s=75, l=50, center="dark"
 			)
+		if forced_palette:
+			palette = forced_palette
 		plot_data.rename(columns={"zone": "bin"}, inplace=True)
 		if plot_type == "line":
 			sns.lineplot(
@@ -316,12 +320,14 @@ def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
 					if _lc_folder in folders_lower:
 						_mapped_folder = folders[folders_lower.index(_lc_folder)]
 						_zonal_data_fn = os.path.join(
-							abs_path, _mapped_folder, filename
+							abs_path, _mapped_folder, output_prefix,filename
 						)
 						print("Found match for {}: {}".format(marker, _zonal_data_fn))
 					else:
 						print("{} does not exist!".format(_zonal_data_fn))
 						continue
+				if not os.path.exists(_zonal_data_fn):
+					continue
 				_zonal_data = pd.read_csv(_zonal_data_fn, index_col=0)
 				if filename == "zone int.csv":
 					_zonal_data.zone = [x.replace("*", "") for x in _zonal_data.zone]
