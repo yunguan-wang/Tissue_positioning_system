@@ -14,7 +14,9 @@ from sklearn.decomposition import PCA
 
 
 def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation_t=15):
-    veins = img[:, :, dapi_channel] < dark_t
+    # use gray scale image as vein signal
+    img_gray = (255*ski.color.rgb2gray(img)).astype('uint8')
+    veins = img_gray < dark_t
     # Opening operation
     selem = morphology.disk(9)
     opened = morphology.erosion(veins, selem)
