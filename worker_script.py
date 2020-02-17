@@ -117,6 +117,13 @@ if __name__ == "__main__":
     img = io.imread(input_tif_fn)
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
+    
+    # save an copy for reference
+    _ = plt.figure(figsize=(16,9))
+    io.imshow(img)
+    plt.savefig(output_prefix + 'original_figure.pdf')
+    plt.close()
+
     if os.path.exists(output_prefix + "zone int.csv") & (not update):
         print("Analysis already done, skip this job.")
     else:
@@ -173,7 +180,7 @@ if __name__ == "__main__":
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
         plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
-
+        plot3channels(img[:,:,2], cv_masks!=0, pv_masks!=0, fig_name=output_prefix+'Masks')
         # find lobules
         cv_masks = cv_masks.astype('uint8')
         _, lobules_sizes, lobule_edges = find_lobules(
