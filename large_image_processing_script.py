@@ -82,7 +82,7 @@ if __name__ == "__main__":
         "--gs_step",
         type=float,
         nargs="?",
-        default=0.05,
+        default=0.1,
         help="The interval of percentage in the GS intensity features.",
     )
     parser.add_argument(
@@ -159,6 +159,13 @@ if __name__ == "__main__":
     print('Processing {}'.format(input_tif_fn))
     print(args)
     img = io.imread(input_tif_fn)
+
+    # save an copy for reference
+    _ = plt.figure(figsize=(16,9))
+    io.imshow(img)
+    plt.savefig(output_prefix + 'original_figure.pdf')
+    plt.close()
+
     vessel_size_l = 2 * width * height / 10000
     # find valid image crops
     valid_crops = find_valid_crops(img[:, :, 2])
@@ -205,7 +212,7 @@ if __name__ == "__main__":
     good_masks = shrink_cv_masks(cv_masks, pv_masks, vessels)
     cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
     pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
-    plot_pv_cv(good_masks, cv_labels, img, prefix=output_prefix)
+    plot3channels(img[:,:,2], cv_masks!=0, pv_masks!=0, fig_name=output_prefix+'Masks')
 
     # find lobules, currently ignored for large image
     # cv_masks = cv_masks.astype('uint8')
@@ -222,7 +229,7 @@ if __name__ == "__main__":
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
     
     # getting tissue boundry limit on the zone crits
-    img_border_mask = np.max(img,axis=(2)) > 0
+    img_border_mask = np.max(img,axis=(2)) > dapi_cutoff
     img_border_mask_filled = ndimage.binary_fill_holes(img_border_mask).astype(int)
     zone_crit = zone_crit * img_border_mask_filled
 
