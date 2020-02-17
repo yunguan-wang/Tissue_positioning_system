@@ -171,7 +171,7 @@ def create_zones(
                 zones[(zone_crit > t0) & (zone_crit <= t1)] = i + 1
     elif zone_break_type == "equal_quantile":
         quantiles = np.linspace(0, 1, num_zones + 1)
-        zone_breaks = np.quantile(zone_crit, quantiles)
+        zone_breaks = np.quantile(zone_crit[zone_crit>0], quantiles)
         for i, zone_break in enumerate(zone_breaks[:-1]):
             zones[(zone_crit > zone_break) & (zone_crit <= zone_breaks[i + 1])] = i + 1
     zones[np.isin(masks, cv_labels)] = -1
