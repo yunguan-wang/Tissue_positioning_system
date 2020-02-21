@@ -117,5 +117,4 @@ dependencies:
   - zeromq=4.3.2=h6538335_2
   - zlib=1.2.11=h2fa13f4_1006
   - zstd=1.4.0=hd8a0e53_0
-prefix: C:\Users\s190548\AppData\Local\Continuum\anaconda3\envs\image_processing
 
