@@ -1,5 +1,5 @@
 import pandas as pd
-import skimage as ski
+from skimage import measure, morphology, filters
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
@@ -187,18 +187,18 @@ def find_lobules(cv_masks, outlier_t=0.1, lobule_name="lobule"):
     cv_dist = ndi.distance_transform_edt(cv_masks == 0)
     # get centroid of each CV, use it as the watershed peaks.
     markers = np.zeros(cv_masks.shape)
-    for region in ski.measure.regionprops(cv_masks):
+    for region in measure.regionprops(cv_masks):
         x_c, y_c = region.centroid
         cv_name = region.label
         markers[int(x_c), int(y_c)] = cv_name
     # watershed
-    lobules = ski.morphology.watershed(cv_dist, markers)
+    lobules = morphology.watershed(cv_dist, markers)
     # Find lobule boundaries via evaluating pixel greadients.
-    grads = ski.filters.rank.gradient(lobules, ski.morphology.disk(5))
+    grads = filters.rank.gradient(lobules, morphology.disk(5))
     lobule_edges = grads != 0
     # calculating lobule sizes
     lobule_sizes = pd.DataFrame()
-    for region in ski.measure.regionprops(lobules):
+    for region in measure.regionprops(lobules):
         lobule_sizes.loc[region.label, "lobule_size"] = region.area
     cutoff_low = lobule_sizes.lobule_size.quantile(outlier_t)
     cutoff_high = lobule_sizes.lobule_size.quantile(1 - outlier_t)
@@ -212,13 +212,13 @@ def find_lobules(cv_masks, outlier_t=0.1, lobule_name="lobule"):
 
 
 def get_zonal_spot_sizes(int_img, zones, output_prefix):
-    int_cutoff = ski.filters.threshold_otsu(int_img)
+    int_cutoff = filters.threshold_otsu(int_img)
     int_signal_mask = int_img > int_cutoff
-    labeled_int_signal_mask = ski.morphology.label(int_signal_mask)
+    labeled_int_signal_mask = morphology.label(int_signal_mask)
     zones[(zones < 0) | (zones == 255)] = 0
     spot_sizes = []
     zone_lables = []
-    for region in ski.measure.regionprops(labeled_int_signal_mask):
+    for region in measure.regionprops(labeled_int_signal_mask):
         region_mask = labeled_int_signal_mask == region.label
         avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
         spot_sizes.append(region.equivalent_diameter)

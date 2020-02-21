@@ -3,8 +3,7 @@ from goz.find_zones import *
 from goz.plotting import *
 from goz.segmentation import *
 import os
-from skimage import io
-import skimage as ski
+from skimage import io, filters, measure
 import pandas as pd
 import warnings
 import matplotlib
@@ -135,7 +134,7 @@ if __name__ == "__main__":
                 img, dilation_t=0, dark_t=dapi_cutoff, dapi_channel=2, vessel_size_t=2
             )
             print("Merging neighboring vessel masks...")
-            vessels = ski.measure.label(vessels, connectivity=2)
+            vessels = measure.label(vessels, connectivity=2)
             new_merged_mask, _ = merge_neighboring_vessels(vessels, max_dist=max_dist)
             while not (new_merged_mask == vessels).all():
                 vessels = new_merged_mask
@@ -157,7 +156,7 @@ if __name__ == "__main__":
                 print(
                     "Default DAPI cutoff failed, try using 0.5 * Otsu threshold values."
                 )
-                dapi_cutoff = 0.5 * ski.filters.threshold_otsu(img[:, :, 2])
+                dapi_cutoff = 0.5 * filters.threshold_otsu(img[:, :, 2])
                 masks, gs_ica, vessels = segmenting_vessels_gs_assisted(
                     img,
                     vessel_size_t=vessel_size_factor,

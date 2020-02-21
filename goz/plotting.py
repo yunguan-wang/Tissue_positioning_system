@@ -1,7 +1,7 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.pylab import cm
-import skimage as ski
+from skimage import io, filters
 import numpy as np
 import pandas as pd
 import os
@@ -16,7 +16,7 @@ def plot3channels(c1, c2, c3, fig_name=None, return_array=False):
 		_array = _array + 0.0
 		_array = (255 * _array / _array.max()).astype("uint8")
 		new_img[:, :, i] = _array
-	ski.io.imshow(new_img)
+	io.imshow(new_img)
 	if fig_name is not None:
 		if '.png' not in fig_name:
 			plt.savefig(fig_name + ".pdf", dpi=300, facecolor="w")
@@ -77,7 +77,7 @@ def plot_zone_int(
 ):
 	sns.set(style="white")
 	zone_int = pd.DataFrame(columns=["zone"])
-	dapi_cutoff = ski.filters.threshold_otsu(dapi_img)
+	dapi_cutoff = filters.threshold_otsu(dapi_img)
 	for zone in np.unique(zone_mask):
 		if zone == 0:
 			continue
@@ -109,13 +109,13 @@ def plot_zone_int_probs(
 	marker_name="GLS2",
 	prefix="",
 ):
-	int_cutoff = ski.filters.threshold_otsu(int_img)
+	int_cutoff = filters.threshold_otsu(int_img)
 	# quick hack for images where the tomato is too sparse
 	if int_cutoff < 100:
 		print("Tomato intensity threshold too low, override to 100!")
 		int_cutoff = 100
 	if dapi_cutoff == "otsu":
-		dapi_cutoff = ski.filters.threshold_otsu(dapi_int)
+		dapi_cutoff = filters.threshold_otsu(dapi_int)
 	int_signal_mask = int_img > int_cutoff
 
 	total_pos_int = (

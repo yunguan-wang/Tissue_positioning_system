@@ -1,6 +1,5 @@
 import pandas as pd
-from skimage import io
-import skimage as ski
+from skimage import io, color, measure
 from scipy import ndimage
 import numpy as np
 import os
@@ -9,7 +8,6 @@ from goz.plotting import *
 from goz.find_zones import *
 from goz.mp_utils import *
 from goz.large_image_processing import *
-from multiprocessing import Pool
 import argparse
 import warnings
 import matplotlib
@@ -200,7 +198,7 @@ if __name__ == "__main__":
     #! vessel masks is not pruned!!!
     good_masks = mask_pruning(overall_masks, vessel_size_l).astype("uint8")
     vessels = vessels * (good_masks!=0)
-    good_masks = ski.measure.label(good_masks)
+    good_masks = measure.label(good_masks)
     # CV, PV classification
     cv_features = extract_features(
         good_masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step
@@ -229,8 +227,8 @@ if __name__ == "__main__":
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
     
     # getting tissue boundry limit on the zone crits
-    img_border_mask = np.max(img,axis=(2)) > dapi_cutoff
-    img_border_mask_filled = ndimage.binary_fill_holes(img_border_mask).astype(int)
+    img_grey = (255*color.rgb2gray(img)).astype('uint8')
+    img_border_mask_filled = find_boundry(img_grey,1)
     zone_crit = zone_crit * img_border_mask_filled
 
     # Calculate zones

@@ -1,5 +1,5 @@
 import pandas as pd
-import skimage as ski
+from skimage import io, morphology, measure
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -119,14 +119,14 @@ def pool_masks_from_crops(img, mask_files, padding=250):
     overall_masks = np.zeros(img.shape[:2], "bool")
     vessels = np.zeros(img.shape[:2], "bool")
     for fn in mask_files:
-        _img = ski.io.imread(fn)
+        _img = io.imread(fn)
         _vessels = _img[:, :, 1]
         _masks = _img[:, :, 0]
         height, width = _masks.shape
         corner_r = height - 1
         corner_b = width - 1
-        _vessels = ski.measure.label(_vessels)
-        _masks = ski.measure.label(_masks)
+        _vessels = measure.label(_vessels)
+        _masks = measure.label(_masks)
         bad_labels_mask = _masks[[0, 0, corner_r, corner_r], [0, corner_b, 0, corner_b]]
         bad_labels_vessel = _vessels[
             [0, 0, corner_r, corner_r], [0, corner_b, 0, corner_b]
@@ -151,9 +151,9 @@ def mask_pruning(overall_masks, vessel_size_l):
     """Use topology features of masks and hierarchical clustering to get rid of bad
     masks.
     """
-    overall_masks = ski.morphology.label(overall_masks)
+    overall_masks = morphology.label(overall_masks)
     props = pd.DataFrame(
-        ski.measure.regionprops_table(
+        measure.regionprops_table(
             overall_masks, properties=("label", "area", "extent", "perimeter")
         )
     ).set_index("label")
