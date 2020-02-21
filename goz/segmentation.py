@@ -1,13 +1,8 @@
 import pandas as pd
-import skimage as ski
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
-import skimage.measure as measure
-import skimage.feature as feature
-import skimage.filters as filters
-import skimage.segmentation as segmentation
-import skimage.morphology as morphology
+from skimage import io, measure, morphology, filters, color
 import scipy.ndimage as ndi
 from sklearn.decomposition import FastICA
 from sklearn.decomposition import PCA
@@ -15,7 +10,7 @@ from sklearn.decomposition import PCA
 
 def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation_t=15):
     # use gray scale image as vein signal
-    img_gray = (255*ski.color.rgb2gray(img)).astype('uint8')
+    img_gray = (255*color.rgb2gray(img)).astype('uint8')
     veins = img_gray < dark_t
     # Opening operation
     selem = morphology.disk(9)
@@ -43,7 +38,7 @@ def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation
 
 def extract_features(labeled_mask, img, q1=0.75, q2=1, step=0.05):
     # a simple erosion to get the outside ring of the mask, where GS is mostly expressed.
-    eroded = ski.morphology.erosion(labeled_mask, ski.morphology.disk(5))
+    eroded = morphology.erosion(labeled_mask, morphology.disk(5))
     labeled_mask = (labeled_mask - eroded).copy()
     # background mask is thrown away here.
     mask_features = pd.DataFrame(index=sorted(np.unique(labeled_mask))[1:])
@@ -106,7 +101,7 @@ def extract_gs_channel(img, gs_channel=1):
         gs_ica = 255 - gs_ica
     # Returns ICA processed GS channel for better classification.
     raw_gs_ica = gs_ica
-    gs_ica = gs_ica > ski.filters.threshold_otsu(gs_ica)
+    gs_ica = gs_ica > filters.threshold_otsu(gs_ica)
     return gs_ica, ica, raw_gs_ica
 
 
@@ -247,7 +242,7 @@ def segmenting_vessels_gs_assisted(
 
     # getting rid of very small masks formed by GS
     masks_sizes = pd.DataFrame(
-        ski.measure.regionprops_table(new_merged_mask,properties=['label','area','centroid'])
+        measure.regionprops_table(new_merged_mask,properties=['label','area','centroid'])
         )
     small_masks = masks_sizes[masks_sizes.area<size_cutoff].label.values
     new_merged_mask[np.isin(new_merged_mask,small_masks)] = 0
@@ -255,27 +250,62 @@ def segmenting_vessels_gs_assisted(
     return new_merged_mask, raw_gs_ica, vessels
 
 
-def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels):
-    new_masks = np.zeros(labeled_cv_masks.shape,'uint8')
+def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels, keep_non_vesseled_gs=True):
+    '''Shrink masks so that they does not include the GS positive layer, which is used in 
+    earliers steps for CV PV classification.
+
+    Parameters
+    ========
+    labeled_cv_masks, labeled_pv_masks : np.array
+        labeled image masks for cv and pv, which combined is the original masks to be shrank.
+    vessels : np.array
+        image masks for the vessel-like holes only, which is the real vessel mask.
+    keep_non_vesseled_gs : bool
+        whether treat gs-positive masks with no vessel-like holes as a CV mask, this is useful
+        only in handling large image processing, in small images, this should always be True.
+
+    Returns
+    ========
+    new_masks : np.array
+        Shrank image masks of the same shape and original labels.
+    '''
+    new_masks = np.zeros(labeled_cv_masks.shape)
     if vessels.dtype != 'bool':
         vessels = vessels != 0
     # shrinking CV masks
     for _masks, _mask_type in zip([labeled_cv_masks,labeled_pv_masks],
                                   ['cv','pv']):
-        for region in ski.measure.regionprops(_masks):
+        for region in measure.regionprops(_masks):
             if region.label == 0:
                 continue
+            label = region.label
             min_row, min_col, max_row, max_col = region.bbox
             area = region.area
             area_vessel = vessels[min_row:max_row,min_col:max_col].sum()
             area_image = region.image
             vessel_image = vessels[min_row:max_row,min_col:max_col] & region.image
-            if (_mask_type == 'cv') & (area_vessel/area < 0.1):
+            if new_masks[min_row:max_row,min_col:max_col][area_image].sum()!=0:
+                print(new_masks[min_row:max_row,min_col:max_col][area_image].unique())
+                raise ValueError
+            if (_mask_type == 'cv') & (area_vessel/area < 0.1) & (keep_non_vesseled_gs):
                 # if the mask is a CV mask and there is a drastic reduction when look
                 # at vessel mask, it means the mask is still a CV mask but the vessel
                 # if not sliced, thus we keep the whole CV mask
-                new_masks[min_row:max_row,min_col:max_col][area_image] = region.label
+                new_masks[min_row:max_row,min_col:max_col][area_image] = label
             else:
                 # otherwise, only the vesseled part will be kept
-                new_masks[min_row:max_row,min_col:max_col][vessel_image] = region.label
+                new_masks[min_row:max_row,min_col:max_col][vessel_image] = label
     return new_masks
+
+    def find_boundry(grey_scale_image, threshold=0):
+        img_border_mask = grey_scale_image > threshold
+        contours = measure.find_contours(img_border_mask+0,0)
+        # biggest contour
+        contour = sorted(contours, key=lambda x: len(x))[-1]
+        # Create an empty image to store the masked array
+        r_mask = np.zeros_like(img_border_mask, dtype='bool')
+        # Create a contour image by using the contour coordinates rounded to their nearest integer value
+        r_mask[np.round(contour[:, 0]).astype('int'), np.round(contour[:, 1]).astype('int')] = 1
+        # Fill in the hole created by the contour boundary
+        r_mask = ndi.binary_fill_holes(r_mask)
+        return r_mask
