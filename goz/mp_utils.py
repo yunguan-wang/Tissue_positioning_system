@@ -9,6 +9,7 @@ from goz.plotting import plot3channels
 def worker_segmentation(args):
     crop_coord, crop_img, crop_gs_ica, max_dist, dark_t, mask_prefix, job_id = args
     fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.tif"
+    fn_pdf = mask_prefix + " ".join([str(x) for x in crop_coord]) + "_masks.pdf"
     if os.path.exists(fn):
         print("Job {} is previously done, skipping this job.".format(job_id))
         return
@@ -25,7 +26,7 @@ def worker_segmentation(args):
     img[:, :, 1] = vessels
     fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.tif"
     io.imsave(fn, img)
-    plot3channels(img[:,:,2], img[:,:,0],img[:,:,1], fn[1:].replace('.tif',''))
+    plot3channels(img[:,:,2], img[:,:,0],img[:,:,1], fn_pdf)
 
 
 def mp_segmentation(

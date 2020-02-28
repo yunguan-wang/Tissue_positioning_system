@@ -297,15 +297,15 @@ def shrink_cv_masks(labeled_cv_masks, labeled_pv_masks, vessels, keep_non_vessel
                 new_masks[min_row:max_row,min_col:max_col][vessel_image] = label
     return new_masks
 
-    def find_boundry(grey_scale_image, threshold=0):
-        img_border_mask = grey_scale_image > threshold
-        contours = measure.find_contours(img_border_mask+0,0)
-        # biggest contour
-        contour = sorted(contours, key=lambda x: len(x))[-1]
-        # Create an empty image to store the masked array
-        r_mask = np.zeros_like(img_border_mask, dtype='bool')
-        # Create a contour image by using the contour coordinates rounded to their nearest integer value
-        r_mask[np.round(contour[:, 0]).astype('int'), np.round(contour[:, 1]).astype('int')] = 1
-        # Fill in the hole created by the contour boundary
-        r_mask = ndi.binary_fill_holes(r_mask)
-        return r_mask
+def find_boundry(grey_scale_image, threshold=0):
+    img_border_mask = grey_scale_image > threshold
+    contours = measure.find_contours(img_border_mask+0,0)
+    # biggest contour
+    contour = sorted(contours, key=lambda x: len(x))[-1]
+    # Create an empty image to store the masked array
+    r_mask = np.zeros_like(img_border_mask, dtype='bool')
+    # Create a contour image by using the contour coordinates rounded to their nearest integer value
+    r_mask[np.round(contour[:, 0]).astype('int'), np.round(contour[:, 1]).astype('int')] = 1
+    # Fill in the hole created by the contour boundary
+    r_mask = ndi.binary_fill_holes(r_mask)
+    return r_mask
