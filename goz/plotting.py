@@ -93,7 +93,7 @@ def plot_zone_int(
 	plt.title("{} intensity in different zones".format(marker_name))
 	if savefig:
 		plt.savefig(
-			prefix + "{} zones marker intensity plot.png".format(str("")), dpi=300
+			prefix + "{} zones marker intensity plot.pdf".format(str("")), dpi=300
 		)
 		plt.close()
 	return zone_int
@@ -107,6 +107,7 @@ def plot_zone_int_probs(
 	savefig=False,
 	plot_type="prob",
 	marker_name="GLS2",
+	tomato_cutoff = None,
 	prefix="",
 ):
 	int_cutoff = filters.threshold_otsu(int_img)
@@ -114,6 +115,9 @@ def plot_zone_int_probs(
 	if int_cutoff < 100:
 		print("Tomato intensity threshold too low, override to 100!")
 		int_cutoff = 100
+	# forced tomato cutoff value
+	if tomato_cutoff is not None:
+		int_cutoff = int(tomato_cutoff)
 	if dapi_cutoff == "otsu":
 		dapi_cutoff = filters.threshold_otsu(dapi_int)
 	int_signal_mask = int_img > int_cutoff
@@ -159,7 +163,7 @@ def plot_zone_int_probs(
 			data=zone_int_stats, y="percent_postive_in_zone", x="zone", sort=False
 		)
 	if prefix != "":
-		plt.savefig(prefix + " signal intensity in zones.png", dpi=300)
+		plt.savefig(prefix + " signal intensity in zones.pdf", dpi=300)
 		plt.close()
 	return zone_int_stats
 
