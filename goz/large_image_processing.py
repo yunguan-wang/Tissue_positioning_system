@@ -151,14 +151,19 @@ def mask_pruning(overall_masks, vessel_size_l):
     """Use topology features of masks and hierarchical clustering to get rid of bad
     masks.
     """
-    overall_masks = morphology.label(overall_masks)
+    overall_masks = overall_masks.copy()
+    if overall_masks.dtype == bool:
+        overall_masks = morphology.label(overall_masks)
     props = pd.DataFrame(
         measure.regionprops_table(
             overall_masks, properties=("label", "area", "extent", "perimeter")
         )
     ).set_index("label")
     props["circularity"] = np.pi * 4 * props.area / np.power(props.perimeter, 2)
-    valid_props = props[props.area > vessel_size_l].copy()
+    valid_props = props[
+        (props.area >= vessel_size_l) & 
+        (props.area < 100*vessel_size_l)
+        ].copy()
     print(
         "{} out of {} masks are kept due to size.".format(
             valid_props.shape[0], props.shape[0]
@@ -174,7 +179,7 @@ def mask_pruning(overall_masks, vessel_size_l):
     good_label = masks_mean_props.circularity.idxmin()
     good_masks = valid_props_data.index[labels == good_label]
     print(
-        "{} out of {} masks are removed".format(len(good_masks), valid_props.shape[0])
+        "{} out of {} masks are kept".format(len(good_masks), valid_props.shape[0])
     )
     overall_masks[~np.isin(overall_masks, good_masks)] = 0
     return overall_masks

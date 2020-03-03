@@ -131,6 +131,21 @@ if __name__ == "__main__":
         default=8,
         help="number of image crop segmentation tasks",
     )
+    parser.add_argument(
+        "-tc",
+        "--tomato_cutoff",
+        nargs="?",
+        default=None,
+        help="Forced tomato cutoff, used in place of OTSU thresholding.",
+    )
+    parser.add_argument(
+    "-dr",
+    "--dapi_dilation_r",
+    nargs="?",
+    type=int,
+    default=0,
+    help="Dilation radius for dapi, useful in handle damage tissue image where cell death is prevalent.",
+    )
     # Parse all arguments
     args = parser.parse_args()
     input_tif_fn = args.input_img
@@ -147,6 +162,8 @@ if __name__ == "__main__":
     height = args.height
     padding = args.padding
     ntasks = args.ntasks
+    tomato_cutoff = args.tomato_cutoff
+    dapi_dilation_r = args.dapi_dilation_r
 
     if output == "":
         output_prefix = input_tif_fn.split(".")[0] + "/"
@@ -184,6 +201,7 @@ if __name__ == "__main__":
         max_dist=max_dist,
         dark_t=dapi_cutoff,
         ntasks=ntasks,
+        dapi_dilation_r = dapi_dilation_r
     )
 
     crop_mask_files = [
@@ -248,6 +266,7 @@ if __name__ == "__main__":
         zones,
         dapi_cutoff="otsu",
         plot_type="probs",
+        tomato_cutoff=tomato_cutoff,
         prefix=output_prefix + "Marker",
     )
     zone_int.to_csv(output_prefix + "zone int.csv")

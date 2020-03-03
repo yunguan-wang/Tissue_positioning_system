@@ -94,6 +94,21 @@ if __name__ == "__main__":
         default=False,
         help="Check for existing analysis results, if exist, skip the job.",
     )
+    parser.add_argument(
+        "-tc",
+        "--tomato_cutoff",
+        nargs="?",
+        default=None,
+        help="Forced tomato cutoff, used in place of OTSU thresholding.",
+    )
+    parser.add_argument(
+        "-dr",
+        "--dapi_dilation_r",
+        nargs="?",
+        type=int,
+        default=0,
+        help="Dilation radius for dapi, useful in handle damage tissue image where cell death is prevalent.",
+    )
     # Parse all arguments
     args = parser.parse_args()
     input_tif_fn = args.input_img
@@ -106,6 +121,8 @@ if __name__ == "__main__":
     update = args.update
     dapi_cutoff = args.dapi_cutoff
     spot_size = args.spot_size
+    tomato_cutoff = args.tomato_cutoff
+    dapi_dilation_r = args.dapi_dilation_r
 
     output_prefix = input_tif_fn.replace(".tif", "/")
     if output != "":
@@ -131,7 +148,9 @@ if __name__ == "__main__":
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
             vessels = segmenting_vessels(
-                img, dilation_t=0, dark_t=dapi_cutoff, dapi_channel=2, vessel_size_t=2
+                img, dilation_t=0, dark_t=dapi_cutoff, dapi_channel=2, 
+                vessel_size_t = vessel_size_factor,
+                dapi_dilation_r = dapi_dilation_r
             )
             print("Merging neighboring vessel masks...")
             vessels = measure.label(vessels, connectivity=2)
@@ -151,6 +170,7 @@ if __name__ == "__main__":
                     vessel_size_t=vessel_size_factor,
                     max_dist=max_dist,
                     dark_t=dapi_cutoff,
+                    dapi_dilation_r = dapi_dilation_r
                 )
             except:
                 print(
@@ -162,11 +182,15 @@ if __name__ == "__main__":
                     vessel_size_t=vessel_size_factor,
                     max_dist=max_dist,
                     dark_t=dapi_cutoff,
+                    dapi_dilation_r = dapi_dilation_r
                 )
             # Save masks
             io.imsave(output_mask_fn, masks.astype(np.uint8))
+        # save gs_ica
+        io.imshow(gs_ica)
+        plt.savefig(output_prefix+'GS_ica.pdf')
+        plt.close()
         # get CV PV classification
-
         cv_features = extract_features(
             masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step
         )
@@ -220,6 +244,7 @@ if __name__ == "__main__":
             zones,
             dapi_cutoff="otsu",
             plot_type="probs",
+            tomato_cutoff=tomato_cutoff,
             prefix=output_prefix + "Marker",
         )
         zone_int.to_csv(output_prefix + "zone int.csv")

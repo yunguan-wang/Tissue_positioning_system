@@ -8,9 +8,14 @@ from sklearn.decomposition import FastICA
 from sklearn.decomposition import PCA
 
 
-def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation_t=15):
+def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dapi_dilation_r=10):
     # use gray scale image as vein signal
-    img_gray = (255*color.rgb2gray(img)).astype('uint8')
+    # img_gray = (255*color.rgb2gray(img)).astype('uint8')
+    # NOTE reverted back to original dapi thresholding
+    img_gray = img[:,:,2]
+    # NOTE This dapi dilation step expands the white area around DAPI and reduced the noise masks.
+    if dapi_dilation_r > 0:
+        img_gray = morphology.dilation(img_gray,selem=morphology.disk(dapi_dilation_r))
     veins = img_gray < dark_t
     # Opening operation
     selem = morphology.disk(9)
@@ -25,15 +30,9 @@ def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dilation
         if region.area > size_cutoff:
             x0, y0, x1, y1 = region.bbox
             filled_image[x0:x1, y0:y1] |= region.filled_image
-    if dilation_t != 0:
-        new_mask = morphology.binary_dilation(
-            filled_image.astype(int), morphology.disk(dilation_t)
-        )
-        new_mask = new_mask.astype(int) - filled_image.astype(int)
-        labeled_mask = measure.label(new_mask)
-        return labeled_mask
-    else:
-        return filled_image
+    # NOTE recover eroded mask from previous dilation. 
+    filled_image = morphology.dilation(filled_image,selem=morphology.disk(dapi_dilation_r))
+    return filled_image
 
 
 def extract_features(labeled_mask, img, q1=0.75, q2=1, step=0.05):
@@ -167,6 +166,7 @@ def segmenting_vessels_gs_assisted(
     vessel_size_t=2,
     gs_channel=1,
     gs_ica=None,
+    dapi_dilation_r = 0,
 ):
     """
     Segmentation of vessels with both dapi channel information and gs
@@ -184,10 +184,10 @@ def segmenting_vessels_gs_assisted(
         raw_gs_ica = gs_ica.copy()
     vessels = segmenting_vessels(
         img,
-        dilation_t=0,
         dark_t=dark_t,
         dapi_channel=dapi_channel,
         vessel_size_t=vessel_size_t,
+        dapi_dilation_r=dapi_dilation_r
     )
     gs_dapi_mask = gs_ica | (vessels != 0)
     # dilate the new mask a little bit to reduce the gap size.
