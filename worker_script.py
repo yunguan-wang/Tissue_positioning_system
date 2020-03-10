@@ -7,8 +7,21 @@ from skimage import io, filters, measure
 import pandas as pd
 import warnings
 import matplotlib
+import sys
 
 warnings.filterwarnings("ignore")
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "False"):
+        return True
+    elif v.lower() in ("no", "false", "f", "True"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
 
 if __name__ == "__main__":
     matplotlib.use("Agg")
@@ -81,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-s",
         "--spot_size",
-        type=bool,
+        type=str2bool,
         nargs="?",
         default=False,
         help="If zonal spot sizes are calculated. This will only work for sparse signals.",
@@ -128,16 +141,20 @@ if __name__ == "__main__":
     if output != "":
         output_prefix = os.path.join(output, output_prefix.split("/")[-2], "")
     output_mask_fn = output_prefix + "masks.tif"
-    print("Prosessing {}".format(input_tif_fn))
-    print("Parameters: {}".format(args))
     img = io.imread(input_tif_fn)
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
-    
+    # make log file
+    log_fn = output_prefix + "log"
+    log = open(log_fn, "a")
+    sys.stdout = log
+    sys.stderr = log
+    print("Prosessing {}".format(input_tif_fn))
+    print("Parameters: {}".format(args))
     # save an copy for reference
-    _ = plt.figure(figsize=(16,9))
+    _ = plt.figure(figsize=(16, 9))
     io.imshow(img)
-    plt.savefig(output_prefix + 'original_figure.pdf')
+    plt.savefig(output_prefix + "original_figure.pdf")
     plt.close()
 
     if os.path.exists(output_prefix + "zone int.csv") & (not update):
@@ -148,9 +165,11 @@ if __name__ == "__main__":
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
             vessels = segmenting_vessels(
-                img, dilation_t=0, dark_t=dapi_cutoff, dapi_channel=2, 
-                vessel_size_t = vessel_size_factor,
-                dapi_dilation_r = dapi_dilation_r
+                img,
+                dark_t=dapi_cutoff,
+                dapi_channel=2,
+                vessel_size_t=vessel_size_factor,
+                dapi_dilation_r=dapi_dilation_r,
             )
             print("Merging neighboring vessel masks...")
             vessels = measure.label(vessels, connectivity=2)
@@ -170,7 +189,7 @@ if __name__ == "__main__":
                     vessel_size_t=vessel_size_factor,
                     max_dist=max_dist,
                     dark_t=dapi_cutoff,
-                    dapi_dilation_r = dapi_dilation_r
+                    dapi_dilation_r=dapi_dilation_r,
                 )
             except:
                 print(
@@ -182,13 +201,13 @@ if __name__ == "__main__":
                     vessel_size_t=vessel_size_factor,
                     max_dist=max_dist,
                     dark_t=dapi_cutoff,
-                    dapi_dilation_r = dapi_dilation_r
+                    dapi_dilation_r=dapi_dilation_r,
                 )
             # Save masks
             io.imsave(output_mask_fn, masks.astype(np.uint8))
         # save gs_ica
         io.imshow(gs_ica)
-        plt.savefig(output_prefix+'GS_ica.pdf')
+        plt.savefig(output_prefix + "GS_ica.pdf")
         plt.close()
         # get CV PV classification
         cv_features = extract_features(
@@ -203,9 +222,11 @@ if __name__ == "__main__":
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
         plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
-        plot3channels(img[:,:,2], cv_masks!=0, pv_masks!=0, fig_name=output_prefix+'Masks')
+        plot3channels(
+            img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
+        )
         # find lobules
-        cv_masks = cv_masks.astype('uint8')
+        cv_masks = cv_masks.astype("uint8")
         _, lobules_sizes, lobule_edges = find_lobules(
             cv_masks, lobule_name=output_prefix.replace(".tif", "")
         )
@@ -234,9 +255,18 @@ if __name__ == "__main__":
         # Plot zones with image
         plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")
         plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
-        # Calculate zonal spot sizes.
+        # Calculate zonal spot clonal sizes.
         if spot_size:
-            _ = get_zonal_spot_sizes(img[:, :, 0], zones, output_prefix)
+            spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+            spot_segmentation_diagnosis(
+                img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+            )
+            plot_spot_clonal_sizes(
+                spot_sizes_df,
+                absolute_number=False,
+                figname=output_prefix + "spot_clonal_sizes.pdf",
+            )
+            spot_sizes_df.to_csv(output_prefix+'spot clonal sizes.csv')
         # Calculate zonal reporter expression levels.
         zone_int = plot_zone_int_probs(
             img[:, :, 0],
@@ -248,4 +278,4 @@ if __name__ == "__main__":
             prefix=output_prefix + "Marker",
         )
         zone_int.to_csv(output_prefix + "zone int.csv")
-
+    log.close()

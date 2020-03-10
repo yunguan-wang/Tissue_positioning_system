@@ -339,3 +339,66 @@ def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
 				_zonal_data["Condition"] = " ".join([folder.split("/")[-1], marker])
 				pooled_data = pooled_data.append(_zonal_data, sort=False)
 	return pooled_data
+
+def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bbox, fig_prefix='./'):
+    '''
+    Plot random 100 spot patches from both the good spots and bad spots.
+    '''
+    _, axes = plt.subplots(10,10, figsize=(40,40))
+    axes = axes.ravel()
+    random_patches = np.random.choice(range(spot_sizes_df.shape[0]),100, False)
+    for i in range(100):
+        patch = random_patches[i]
+        px0,py0,px1,py1 = [int(x) for x in spot_sizes_df.iloc[patch,3].split(',')]
+        cx0,cy0,cx1,cy1 = [int(x) for x in spot_sizes_df.iloc[patch,2].split(',')]
+        axes[i].imshow(img[px0:px1,py0:py1,:])
+        highlight = np.zeros(img.shape[:2],'bool')
+        highlight[cx0:cx1,cy0:cy1] = 1
+        axes[i].imshow(highlight[px0:px1,py0:py1], alpha=0.5)
+        axes[i].set_title(str(spot_sizes_df.iloc[i,0]))
+    plt.savefig(fig_prefix + 'valid_marker_spots.pdf')
+    plt.close()
+
+    _, axes = plt.subplots(10,10, figsize=(40,40))
+    axes = axes.ravel()
+    random_patches = np.random.choice(skipped_bbox,100, False)
+    for i in range(100):
+        try:
+            x0,y0,x1,y1 = [int(x) for x in skipped_bbox[i].split(',')]
+        except:
+            break
+        axes[i].imshow(img[x0:x1,y0:y1,:])
+        axes[i].set_title(skipped_bbox[i])
+    plt.savefig(fig_prefix+'invalid_marker_spots.pdf')
+    plt.close()
+
+def plot_spot_clonal_sizes(spot_sizes_df,bins = [0,1,4,7,99], figname=None, absolute_number = True):
+    # bin breaks are in (,] format.
+    # parsing bins and labels
+    labels = []
+    for i,bin_break in enumerate(bins[:-1]):
+        bin_values = list(range(bin_break+1,bins[i+1]+1))
+        if len(bin_values) == 1:
+            labels.append(bin_values[0])
+        elif bin_break == bins[-2]:
+            labels.append('>=' + str(bin_break+1))
+        else:
+            labels.append('{}-{}'.format(bin_values[0],bin_values[-1]))
+
+    plot_data = spot_sizes_df.copy()
+    plot_data['clonal_sizes'] = pd.cut(
+        plot_data.n_cells_per_spot, bins,labels=labels)
+    plot_data = plot_data.groupby(['zone','clonal_sizes'])['n_cells_per_spot'].count()
+    plot_data = plot_data.unstack('clonal_sizes').fillna(0)
+    if not absolute_number:
+        plot_data = plot_data.apply(lambda x: x/x.sum(),axis=1)
+
+    plot_data.plot(kind='bar', stacked=True)
+    plt.xlabel('GoZ zones')
+    plt.xticks(rotation=0)
+    plt.ylabel('% of clone sizes in zone')
+    plt.legend(bbox_to_anchor=(1,0.5),loc='center left')
+    plt.tight_layout()
+    if figname is not None:
+        plt.savefig(figname)
+        plt.close()
