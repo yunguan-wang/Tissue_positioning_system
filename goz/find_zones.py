@@ -157,6 +157,8 @@ def create_zones(
     # CV are labeled as -1
     # PV are labeled as 255
     zones = np.zeros(masks.shape[:2])
+    # ignore zone_crit from masks.
+    valid_zone_crit = zone_crit[masks==0].copy()
     if zone_break_type == "equal_length":
         for i in range(num_zones):
             t0 = i / num_zones
@@ -167,7 +169,7 @@ def create_zones(
                 zones[(zone_crit > t0) & (zone_crit <= t1)] = i + 1
     elif zone_break_type == "equal_quantile":
         quantiles = np.linspace(0, 1, num_zones + 1)
-        zone_breaks = np.quantile(zone_crit[zone_crit>0], quantiles)
+        zone_breaks = np.quantile(valid_zone_crit, quantiles)
         for i, zone_break in enumerate(zone_breaks[:-1]):
             zones[(zone_crit > zone_break) & (zone_crit <= zone_breaks[i + 1])] = i + 1
     zones[np.isin(masks, cv_labels)] = -1
@@ -294,79 +296,62 @@ def watershed_masks(unlabelled_mask,
     labels = segmentation.watershed(-distance, markers, mask=unlabelled_mask)
     return labels
 
-def calculate_clonal_size(img,zones):
-    '''
+def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
+    """
     Calculate the clonal size of each marker spots in zone. Will try to get rid of marker spots with
     no nuclei or connected-but-not-from-the-same-clone.
-    '''
-    int_img = img[:,:,0].copy()
-    dapi = img[:,:,2].copy()
+    """
+    int_img = img[:, :, 0].copy()
+    dapi = img[:, :, 2].copy()
     # dapi and marker threshold set by OTSU.
-    dapi_t = filters.threshold_otsu(dapi[dapi>0])
-    int_cutoff = filters.threshold_otsu(int_img[(int_img<255) & (int_img>0)])
+    dapi_t = filters.threshold_otsu(dapi[dapi > 0])
+    int_cutoff = filters.threshold_otsu(int_img[(int_img < 255) & (int_img > 0)])
     int_signal_mask = int_img > int_cutoff
-    int_signal_mask = morphology.erosion(int_signal_mask,morphology.disk(5))
-    labeled_int_signal_mask = morphology.label(int_signal_mask,connectivity=1)
+    int_signal_mask = morphology.erosion(int_signal_mask, morphology.disk(tomato_erosion))
+    labeled_int_signal_mask = morphology.label(int_signal_mask, connectivity=1)
     zones[(zones < 0) | (zones == 255)] = 0
     # initialize
     spot_sizes = []
     zone_lables = []
-    sub_bboxes = []
     parent_bbox = []
     processed_bboxes = []
     # loop through each labeled spot.
     for region in measure.regionprops(labeled_int_signal_mask):
         region_mask = labeled_int_signal_mask == region.label
-        x0,y0,x1,y1 = region.bbox
-        processed_bboxes.append(','.join([str(x) for x in [x0,y0,x1,y1]]))
+        x0, y0, x1, y1 = region.bbox
+        processed_bboxes.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
         avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
         if avg_zone_number == 0:
             continue
-        region_int_mask = int_signal_mask[x0:x1,y0:y1] & region.image
-        region_dapi_mask = (dapi[x0:x1,y0:y1] > dapi_t) & region.image
-        # If the bbox of the marker spot is too big, split it since it is likel the spot is made up of two or more
-        # clones.
-        # TODO could improve the cutoff somehow.
-        if ((x1-x0) > 60) | ((y1-y0)>60): 
-            min_dist = 5
-            labels = watershed_masks(region_int_mask,min_distance=min_dist)
-            while labels.max()>2:
-                min_dist = min_dist + 5
-                labels = watershed_masks(region_int_mask,min_distance=min_dist)
-            # NOTE if buy expanding min_dist no clones were found, try alternative method based on nuclei. 
-            if labels.max() == 0:
-                labels = watershed_masks(region_int_mask,dapi_mask=region_dapi_mask, min_distance=10)
-            if labels.max() == 0:
-                continue
-        else:
-            labels = region_int_mask+0
-        for subregion in measure.regionprops(labels):
+        region_int_mask = int_signal_mask[x0:x1, y0:y1] & region.image
+        region_dapi_mask = (dapi[x0:x1, y0:y1] > dapi_t) & region.image
+        region_dapi_mask = merge_neighboring_vessels(
+            measure.label(region_dapi_mask), max_nuclei_dist
+        )[0]
+        for subregion in measure.regionprops(region_dapi_mask):
             # watershed segmentation to get number of cells
-            submask_x0,submask_y0,submask_x1,submask_y1 = subregion.bbox
-            submask_x0 = submask_x0 + x0
-            submask_x1 = submask_x1 + x0
-            submask_y0 = submask_y0 + y0
-            submask_y1 = submask_y1 + y0
-            dapi_mask = (dapi[submask_x0:submask_x1,submask_y0:submask_y1] > dapi_t) & subregion.image
-            # getting ri of small white spots.
-            dapi_mask = morphology.opening(dapi_mask,selem=morphology.disk(3))
-            n_cells = watershed_masks(
-                dapi_mask,
-                num_peaks_per_label=3,
-                footprint = morphology.disk(3)
-                ).max()
+            submask_x0, submask_y0, submask_x1, submask_y1 = subregion.bbox
+            distance = ndi.distance_transform_edt(subregion.image)
+            local_maxi = feature.peak_local_max(
+                distance, indices=False, footprint=morphology.disk(3)
+            )
+            markers = measure.label(local_maxi, connectivity=2)
+            labels = segmentation.watershed(-distance, markers, mask=subregion.image)
+            n_cells = labels.max()
             if n_cells == 0:
                 continue
             # saving data
             spot_sizes.append(n_cells)
             zone_lables.append(avg_zone_number)
-            sub_bboxes.append(','.join([str(x) for x in [submask_x0,submask_y0,submask_x1,submask_y1]]))
-            parent_bbox.append(','.join([str(x) for x in [x0,y0,x1,y1]]))
-    spot_sizes_df = pd.DataFrame({
-            "n_cells_per_spot": spot_sizes, 
+            parent_bbox.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
+    spot_sizes_df = pd.DataFrame(
+        {
+            "clonal_size": spot_sizes,
             "zone": zone_lables,
-            "subbox" : sub_bboxes,
-            "parent_bbox": parent_bbox
-            })
-    skipped_bbox = [x for x in processed_bboxes if x not in spot_sizes_df.parent_bbox.values]
+            "parent_bbox": parent_bbox,
+        }
+    )
+    skipped_bbox = [
+        x for x in processed_bboxes if x not in spot_sizes_df.parent_bbox.values
+    ]
     return spot_sizes_df, skipped_bbox

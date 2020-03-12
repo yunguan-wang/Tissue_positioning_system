@@ -135,16 +135,17 @@ if __name__ == "__main__":
         "-tc",
         "--tomato_cutoff",
         nargs="?",
-        default=None,
+        type=int,
+        default=0,
         help="Forced tomato cutoff, used in place of OTSU thresholding.",
     )
     parser.add_argument(
-    "-dr",
-    "--dapi_dilation_r",
-    nargs="?",
-    type=int,
-    default=0,
-    help="Dilation radius for dapi, useful in handle damage tissue image where cell death is prevalent.",
+        "-dr",
+        "--dapi_dilation_r",
+        nargs="?",
+        type=int,
+        default=0,
+        help="Dilation radius for dapi, useful in handle damage tissue image where cell death is prevalent.",
     )
     # Parse all arguments
     args = parser.parse_args()
@@ -171,14 +172,14 @@ if __name__ == "__main__":
         output_prefix = output
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
-    print('Processing {}'.format(input_tif_fn))
+    print("Processing {}".format(input_tif_fn))
     print(args)
     img = io.imread(input_tif_fn)
 
     # save an copy for reference
-    _ = plt.figure(figsize=(16,9))
+    _ = plt.figure(figsize=(16, 9))
     io.imshow(img)
-    plt.savefig(output_prefix + 'original_figure.pdf')
+    plt.savefig(output_prefix + "original_figure.pdf")
     plt.close()
 
     vessel_size_l = 2 * width * height / 10000
@@ -186,10 +187,10 @@ if __name__ == "__main__":
     valid_crops = find_valid_crops(img[:, :, 2])
     # extract gs channel
     gs_ica, _, _ = extract_gs_channel(img)
-    
+
     # save gs_ica
     io.imshow(gs_ica)
-    plt.savefig(output_prefix+'GS_ica.pdf')
+    plt.savefig(output_prefix + "GS_ica.pdf")
     plt.close()
 
     # multiprocessing each image crop
@@ -201,7 +202,7 @@ if __name__ == "__main__":
         max_dist=max_dist,
         dark_t=dapi_cutoff,
         ntasks=ntasks,
-        dapi_dilation_r = dapi_dilation_r
+        dapi_dilation_r=dapi_dilation_r,
     )
 
     crop_mask_files = [
@@ -215,7 +216,7 @@ if __name__ == "__main__":
     )
     #! vessel masks is not pruned!!!
     good_masks = mask_pruning(overall_masks, vessel_size_l).astype("uint8")
-    vessels = vessels * (good_masks!=0)
+    vessels = vessels * (good_masks != 0)
     good_masks = measure.label(good_masks)
     # CV, PV classification
     cv_features = extract_features(
@@ -228,7 +229,9 @@ if __name__ == "__main__":
     good_masks = shrink_cv_masks(cv_masks, pv_masks, vessels)
     cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
     pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
-    plot3channels(img[:,:,2], cv_masks!=0, pv_masks!=0, fig_name=output_prefix+'Masks')
+    plot3channels(
+        img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
+    )
 
     # find lobules, currently ignored for large image
     # cv_masks = cv_masks.astype('uint8')
@@ -243,15 +246,21 @@ if __name__ == "__main__":
     # Calculate distance projections
     #! orphan cut off set at 550
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
-    
+
     # getting tissue boundry limit on the zone crits
-    img_grey = (255*color.rgb2gray(img)).astype('uint8')
-    img_border_mask_filled = find_boundry(img_grey,1)
+    img_grey = (255 * color.rgb2gray(img)).astype("uint8")
+    img_border_mask_filled = find_boundry(img_grey, 1)
     zone_crit = zone_crit * img_border_mask_filled
 
     # Calculate zones
-    zones = create_zones(good_masks,zone_crit,cv_labels,pv_labels,
-                         zone_break_type="equal_quantile",num_zones=24,)
+    zones = create_zones(
+        good_masks,
+        zone_crit,
+        cv_labels,
+        pv_labels,
+        zone_break_type="equal_quantile",
+        num_zones=24,
+    )
 
     # Plot zones with image
     plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")

@@ -30,8 +30,9 @@ def segmenting_vessels(img, dark_t=20, dapi_channel=2, vessel_size_t=2, dapi_dil
         if region.area > size_cutoff:
             x0, y0, x1, y1 = region.bbox
             filled_image[x0:x1, y0:y1] |= region.filled_image
-    # NOTE recover eroded mask from previous dilation. 
-    filled_image = morphology.dilation(filled_image,selem=morphology.disk(dapi_dilation_r))
+    # NOTE recover eroded mask from previous dilation.
+    if dapi_dilation_r > 0:
+        filled_image = morphology.dilation(filled_image,selem=morphology.disk(dapi_dilation_r))
     return filled_image
 
 

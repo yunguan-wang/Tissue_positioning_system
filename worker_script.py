@@ -111,7 +111,8 @@ if __name__ == "__main__":
         "-tc",
         "--tomato_cutoff",
         nargs="?",
-        default=None,
+        type=int,
+        default=0,
         help="Forced tomato cutoff, used in place of OTSU thresholding.",
     )
     parser.add_argument(
@@ -258,15 +259,15 @@ if __name__ == "__main__":
         # Calculate zonal spot clonal sizes.
         if spot_size:
             spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
-            spot_segmentation_diagnosis(
-                img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
-            )
+            # spot_segmentation_diagnosis(
+            #     img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+            # )
             plot_spot_clonal_sizes(
                 spot_sizes_df,
                 absolute_number=False,
                 figname=output_prefix + "spot_clonal_sizes.pdf",
             )
-            spot_sizes_df.to_csv(output_prefix+'spot clonal sizes.csv')
+            spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
         # Calculate zonal reporter expression levels.
         zone_int = plot_zone_int_probs(
             img[:, :, 0],
