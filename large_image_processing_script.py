@@ -11,8 +11,20 @@ from goz.large_image_processing import *
 import argparse
 import warnings
 import matplotlib
+import sys
 
 warnings.filterwarnings("ignore")
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "False"):
+        return True
+    elif v.lower() in ("no", "false", "f", "True"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
 
 if __name__ == "__main__":
     matplotlib.use("Agg")
@@ -86,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-s",
         "--spot_size",
-        type=bool,
+        type=str2bool,
         nargs="?",
         default=False,
         help="If zonal spot sizes are calculated. This will only work for sparse signals.",
@@ -172,8 +184,14 @@ if __name__ == "__main__":
         output_prefix = output
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
-    print("Processing {}".format(input_tif_fn))
-    print(args)
+    
+    # make log file
+    log_fn = output_prefix + "log"
+    log = open(log_fn, "a")
+    sys.stdout = log
+    sys.stderr = log
+    print("Prosessing {}".format(input_tif_fn))
+    print("Parameters: {}".format(args))
     img = io.imread(input_tif_fn)
 
     # save an copy for reference
@@ -185,6 +203,7 @@ if __name__ == "__main__":
     vessel_size_l = 2 * width * height / 10000
     # find valid image crops
     valid_crops = find_valid_crops(img[:, :, 2])
+    plot_image_crops(img[:,:,2],pd.DataFrame(valid_crops),padding,output_prefix)
     # extract gs channel
     gs_ica, _, _ = extract_gs_channel(img)
 
@@ -251,7 +270,15 @@ if __name__ == "__main__":
     img_grey = (255 * color.rgb2gray(img)).astype("uint8")
     img_border_mask_filled = find_boundry(img_grey, 1)
     zone_crit = zone_crit * img_border_mask_filled
-
+    processe_img_mask = np.zeros(img.shape[:2],'bool')
+    for crop in valid_crops:
+        x0,x1,y0,y1 = crop
+        x0 = x0 + padding
+        y0 = y0 + padding
+        x1 = x1 - padding
+        y1 = y1 - padding
+        processe_img_mask[x0:x1,y0:y1] = 1
+    zone_crit = zone_crit * processe_img_mask
     # Calculate zones
     zones = create_zones(
         good_masks,
@@ -266,8 +293,17 @@ if __name__ == "__main__":
     plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")
     plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
     # Calculate zonal spot sizes.
-    if spot_size:
-        _ = get_zonal_spot_sizes(img[:, :, 0], zones, output_prefix)
+    # if spot_size:
+    #     spot_sizes_df, _ = calculate_clonal_size(img, zones)
+    #     # spot_segmentation_diagnosis(
+    #     #     img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+    #     # )
+    #     spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
+    #     plot_spot_clonal_sizes(
+    #     spot_sizes_df,
+    #     absolute_number=False,
+    #     figname=output_prefix + "spot_clonal_sizes.pdf",
+    #     )
     # Calculate zonal reporter expression levels.
     zone_int = plot_zone_int_probs(
         img[:, :, 0],

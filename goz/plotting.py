@@ -293,12 +293,9 @@ def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
     for folder in folders:
         for marker in markers:
             tif_files = sorted(
-                [
-                    x
-                    for x in os.listdir(folder)
-                    if (".tif" in x) & (marker.lower() in x.lower())
-                ]
-            )
+                [x for x in os.listdir(folder) 
+                if (".tif" in x) & (marker.lower() in x.lower())])
+            i = 0
             for img_fn in tif_files:
                 output_prefix = img_fn.replace(".tif", "")
                 _zonal_data_fn = os.path.join(abs_path, folder, output_prefix, filename)
@@ -325,7 +322,9 @@ def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
                     _zonal_data.zone = [x.replace("*", "") for x in _zonal_data.zone]
                     _zonal_data.zone = _zonal_data.zone.replace("*CV", "CV")
                 _zonal_data["Condition"] = " ".join([folder.split("/")[-1], marker])
+                _zonal_data["batch"] = 'batch' + str(i+1)
                 pooled_data = pooled_data.append(_zonal_data, sort=False)
+                i += 1
     return pooled_data
 
 def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bboxes, fig_prefix='./'):
@@ -354,7 +353,12 @@ def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bboxes, fig_prefix='.
     plt.savefig(fig_prefix+'invalid_marker_spots.pdf')
     plt.close()
 
-def plot_spot_clonal_sizes(spot_sizes_df,bins = [0,1,4,7,99], figname=None, absolute_number = True):
+def plot_spot_clonal_sizes(
+    spot_sizes_df,
+    bins = [0,1,4,7,99],
+    figname=None,
+    absolute_number = True,
+    ylab = '% of clone sizes in zone'):
     # bin breaks are in (,] format.
     # parsing bins and labels
     labels = []
@@ -378,7 +382,7 @@ def plot_spot_clonal_sizes(spot_sizes_df,bins = [0,1,4,7,99], figname=None, abso
     plot_data.plot(kind='bar', stacked=True)
     plt.xlabel('GoZ zones')
     plt.xticks(rotation=0)
-    plt.ylabel('% of clone sizes in zone')
+    plt.ylabel(ylab)
     plt.legend(bbox_to_anchor=(1,0.5),loc='center left')
     plt.tight_layout()
     if figname is not None:

@@ -32,7 +32,7 @@ def find_valid_crops(dapi, cols=3500, rows=1500, padding=250):
     return valid_crops
 
 
-def _debug_plot_image_crops(dapi, crop_df, padding):
+def plot_image_crops(dapi, crop_df, padding, prefix):
     crop_df = crop_df.copy()
     crop_df[crop_df == 0] = -250
     crop_df.iloc[:, [0, 2]] = crop_df.iloc[:, [0, 2]] + padding
@@ -47,8 +47,11 @@ def _debug_plot_image_crops(dapi, crop_df, padding):
         masks[top:bottom, right - 50 : right + 50] = True
         masks[top - 50 : top + 50, left:right] = True
         masks[bottom - 50 : bottom + 50, left:right] = True
+    _ = plt.figure(figsize=(16,9))
     io.imshow(masks, cmap="gray")
     io.imshow(dapi, alpha=0.5, cmap="gray")
+    plt.savefig(prefix+'image_crops.pdf')
+    plt.close()
 
 
 def find_spans(left, right):
