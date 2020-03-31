@@ -256,18 +256,7 @@ if __name__ == "__main__":
         # Plot zones with image
         plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")
         plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
-        # Calculate zonal spot clonal sizes.
-        if spot_size:
-            spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
-            # spot_segmentation_diagnosis(
-            #     img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
-            # )
-            plot_spot_clonal_sizes(
-                spot_sizes_df,
-                absolute_number=False,
-                figname=output_prefix + "spot_clonal_sizes.pdf",
-            )
-            spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
+
         # Calculate zonal reporter expression levels.
         zone_int = plot_zone_int_probs(
             img[:, :, 0],
@@ -279,4 +268,17 @@ if __name__ == "__main__":
             prefix=output_prefix + "Marker",
         )
         zone_int.to_csv(output_prefix + "zone int.csv")
+        
+        # Calculate zonal spot clonal sizes.
+        if spot_size:
+            spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+            spot_segmentation_diagnosis(
+                img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+            )
+            plot_spot_clonal_sizes(
+                spot_sizes_df,
+                absolute_number=False,
+                figname=output_prefix + "spot_clonal_sizes.pdf",
+            )
+            spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
     log.close()
