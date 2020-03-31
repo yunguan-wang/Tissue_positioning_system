@@ -8,6 +8,10 @@ from goz.find_zones import *
 from scipy.stats import ttest_ind, ttest_ind_from_stats
 from itertools import product
 
+'''
+Scripts for making most of the figures in the paper
+'''
+
 def binning_clonal_sizes(pooled_data, bins = [0,2,5,7,99]):
     binned_data = pooled_data.copy()
     labels = []
