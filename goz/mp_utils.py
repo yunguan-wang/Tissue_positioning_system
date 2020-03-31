@@ -21,7 +21,8 @@ def worker_segmentation(args):
     try:
         masks, _, vessels = segmenting_vessels_gs_assisted(
             crop_img_norm,
-            size_cutoff_factor=2,
+            vessel_size_t=2,
+            gs_added_mask_size_t=2,
             max_dist=max_dist,
             dark_t=dark_t,
             gs_ica=crop_gs_ica,
@@ -32,7 +33,7 @@ def worker_segmentation(args):
         dark_t = 0.5 * filters.threshold_otsu(crop_img_norm[:,:,2])
         masks, _, vessels = segmenting_vessels_gs_assisted(
             crop_img_norm,
-            size_cutoff_factor=2,
+            gs_added_mask_size_t=2,
             max_dist=max_dist,
             dark_t=dark_t,
             gs_ica=crop_gs_ica,
@@ -43,7 +44,14 @@ def worker_segmentation(args):
     img[:, :, 1] = vessels
     fn = mask_prefix + "_" + " ".join([str(x) for x in crop_coord]) + "_masks.tif"
     io.imsave(fn, img)
-    plot3channels(masks!=0, crop_gs_ica, crop_img_norm[:,:,2], fn_pdf)
+    try:
+        plot3channels(masks!=0, crop_gs_ica, crop_img_norm[:,:,2], fn_pdf)
+    except:
+        plot3channels(
+            masks!=0,
+            crop_gs_ica,
+            crop_img_norm[:,:,2],
+            fn_pdf.replace('.pdf','png'))
 
 
 def mp_segmentation(

@@ -338,7 +338,7 @@ def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bboxes, fig_prefix='.
     random_patches = np.random.choice(spot_sizes_df.index.unique(),n_subplots, False)
     for i,bbox in enumerate(random_patches):
         px0,py0,px1,py1 = [int(x) for x in bbox.split(',')]
-        axes[i].imshow(img[px0:px1,py0:py1,:])
+        axes[i].imshow(img[px0:px1,py0:py1,:], vmax=255)
         axes[i].set_title('+'.join(spot_sizes_df.clonal_size[[bbox]].astype(str)))
     plt.savefig(fig_prefix + 'valid_marker_spots.pdf')
     plt.close()
@@ -349,7 +349,7 @@ def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bboxes, fig_prefix='.
     random_patches = np.random.choice(skipped_bboxes,n_subplots, False)
     for i,bbox in enumerate(random_patches):
         px0,py0,px1,py1 = [int(x) for x in bbox.split(',')]
-        axes[i].imshow(img[px0:px1,py0:py1,:])
+        axes[i].imshow(img[px0:px1,py0:py1,:],vmax=255)
     plt.savefig(fig_prefix+'invalid_marker_spots.pdf')
     plt.close()
 
