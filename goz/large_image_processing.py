@@ -118,25 +118,13 @@ def merge_overlapping_boxes(valid_crops):
     return crop_df
 
 
-def pool_masks_from_crops(img, mask_files, padding=250):
+def pool_masks_from_crops(img, mask_files, img_border_mask_eroded, padding=250):
     overall_masks = np.zeros(img.shape[:2], "bool")
     vessels = np.zeros(img.shape[:2], "bool")
     for fn in mask_files:
         _img = io.imread(fn)
         _vessels = _img[:, :, 1]
         _masks = _img[:, :, 0]
-        height, width = _masks.shape
-        corner_r = height - 1
-        corner_b = width - 1
-        _vessels = measure.label(_vessels)
-        _masks = measure.label(_masks)
-        bad_labels_mask = _masks[[0, 0, corner_r, corner_r], [0, corner_b, 0, corner_b]]
-        bad_labels_vessel = _vessels[
-            [0, 0, corner_r, corner_r], [0, corner_b, 0, corner_b]
-        ]
-        for l_m, l_v in zip(bad_labels_mask, bad_labels_vessel):
-            _masks[_masks == l_m] = 0
-            _vessels[_masks == l_v] = 0
         coords = [int(x) for x in fn.split("/")[-1].split("_")[1].split(" ")]
         top, bottom, left, right = coords
         _masks = _masks[padding:-padding, padding:-padding] != 0
@@ -147,10 +135,12 @@ def pool_masks_from_crops(img, mask_files, padding=250):
         vessels[
             top + padding : bottom - padding, left + padding : right - padding
         ] = _vessels
+    overall_masks = overall_masks * img_border_mask_eroded
+    vessels = vessels * img_border_mask_eroded
     return overall_masks, vessels
 
 
-def mask_pruning(overall_masks, vessel_size_l):
+def mask_pruning(overall_masks, vessel_size_l, clustering_based_pruning = False):
     """Use topology features of masks and hierarchical clustering to get rid of bad
     masks.
     """
@@ -165,24 +155,28 @@ def mask_pruning(overall_masks, vessel_size_l):
     props["circularity"] = np.pi * 4 * props.area / np.power(props.perimeter, 2)
     valid_props = props[
         (props.area >= vessel_size_l) & 
-        (props.area < 100*vessel_size_l)
+        (props.area < 1000*vessel_size_l)
         ].copy()
     print(
         "{} out of {} masks are kept due to size.".format(
             valid_props.shape[0], props.shape[0]
         )
     )
-    valid_props.iloc[:, :2] = np.log2(valid_props.iloc[:, :2])
-    valid_props_data = valid_props.copy()
-    cluster_estimator = AgglomerativeClustering(
-        2, affinity="correlation", linkage="average"
-    )
-    labels = cluster_estimator.fit_predict(valid_props_data)
-    masks_mean_props = valid_props_data.groupby(labels).mean()
-    good_label = masks_mean_props.circularity.idxmin()
-    good_masks = valid_props_data.index[labels == good_label]
-    print(
-        "{} out of {} masks are kept".format(len(good_masks), valid_props.shape[0])
-    )
-    overall_masks[~np.isin(overall_masks, good_masks)] = 0
-    return overall_masks
+    if clustering_based_pruning:
+        valid_props.iloc[:, :2] = np.log2(valid_props.iloc[:, :2])
+        valid_props_data = valid_props.copy()
+        cluster_estimator = AgglomerativeClustering(
+            2, affinity="correlation", linkage="average"
+        )
+        labels = cluster_estimator.fit_predict(valid_props_data)
+        masks_mean_props = valid_props_data.groupby(labels).mean()
+        good_label = masks_mean_props.circularity.idxmin()
+        good_masks = valid_props_data.index[labels == good_label]
+        print(
+            "{} out of {} masks are kept".format(len(good_masks), valid_props.shape[0])
+        )
+        overall_masks[~np.isin(overall_masks, good_masks)] = 0
+    else:
+        good_label = valid_props.index.unique()
+        overall_masks[~np.isin(overall_masks, good_label)] = 0
+    return overall_masks!=0
