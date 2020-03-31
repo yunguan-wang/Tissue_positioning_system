@@ -150,6 +150,39 @@ def find_orphans(masks, cv_labels, pv_labels, orphan_crit=400):
     orphans = (dist_to_pv > orphan_crit) | (dist_to_cv > orphan_crit)
     return orphans
 
+def calculate_zone_crit(cv_masks, pv_masks, tolerance=50):
+    cv_dist = ndi.distance_transform_edt(cv_masks == 0)
+    pv_dist = ndi.distance_transform_edt(pv_masks == 0)
+    cv_zones = np.zeros(cv_masks.shape, "uint8")
+    pv_zones = np.zeros(cv_masks.shape, "uint8")
+    # Iteratively expand a radius cutoff to assign regions around CV or PV into
+    # bands of different distance.
+    for _dist, _zone, _destination_mask in zip(
+        [cv_dist, pv_dist], [cv_zones, pv_zones], [pv_masks, cv_masks]
+    ):
+        updatable = ~np.zeros(_dist.shape, "bool")
+        i = 1
+        while True:
+            if updatable.sum() == 0:
+                print("All image region covered, stop expansion")
+                break
+            elif ((_destination_mask != 0) * updatable).sum() == 0:
+                print("All opposite masks covered, stop expansion")
+                break
+            elif i > tolerance:
+                print("Max distance reached")
+                break
+            r = i * 10
+            _expansion_mask = np.logical_and(updatable, _dist < r)
+            _zone[_expansion_mask] = i
+            updatable[_expansion_mask] = False
+            i += 1
+    zone_crit = np.zeros(updatable.shape)
+    orphans = np.logical_or(cv_zones == 0, pv_zones == 0)
+    zone_crit[~orphans] = np.log2(cv_zones[~orphans] / pv_zones[~orphans])
+    zone_crit = (zone_crit - zone_crit.min()) / (zone_crit.max() - zone_crit.min())
+    zone_crit[orphans] = 0
+    return zone_crit
 
 def create_zones(
     masks, zone_crit, cv_labels, pv_labels, zone_break_type="equal_length", num_zones=5
@@ -158,7 +191,8 @@ def create_zones(
     # PV are labeled as 255
     zones = np.zeros(masks.shape[:2])
     # ignore zone_crit from masks.
-    valid_zone_crit = zone_crit[masks==0].copy()
+    valid_zone_crit = zone_crit.copy()
+    valid_zone_crit[masks!=0] = 0
     if zone_break_type == "equal_length":
         for i in range(num_zones):
             t0 = i / num_zones
@@ -169,9 +203,13 @@ def create_zones(
                 zones[(zone_crit > t0) & (zone_crit <= t1)] = i + 1
     elif zone_break_type == "equal_quantile":
         quantiles = np.linspace(0, 1, num_zones + 1)
-        zone_breaks = np.quantile(valid_zone_crit, quantiles)
+        zone_breaks = np.quantile(valid_zone_crit[valid_zone_crit>0], quantiles)
         for i, zone_break in enumerate(zone_breaks[:-1]):
-            zones[(zone_crit > zone_break) & (zone_crit <= zone_breaks[i + 1])] = i + 1
+            zones[
+                (valid_zone_crit > zone_break) & 
+                (valid_zone_crit <= zone_breaks[i + 1])
+                ] = i + 1
+    zones[valid_zone_crit==0] = 0
     zones[np.isin(masks, cv_labels)] = -1
     zones[np.isin(masks, pv_labels)] = 255
     return zones
@@ -227,41 +265,6 @@ def get_zonal_spot_sizes(int_img, zones, output_prefix):
     spot_sizes.to_csv(output_prefix + "spot_sizes.csv")
     return spot_sizes
 
-
-def calculate_zone_crit(cv_masks, pv_masks, tolerance=50):
-    cv_dist = ndi.distance_transform_edt(cv_masks == 0)
-    pv_dist = ndi.distance_transform_edt(pv_masks == 0)
-    cv_zones = np.zeros(cv_masks.shape, "uint8")
-    pv_zones = np.zeros(cv_masks.shape, "uint8")
-    # Iteratively expand a radius cutoff to assign regions around CV or PV into
-    # bands of different distance.
-    for _dist, _zone, _destination_mask in zip(
-        [cv_dist, pv_dist], [cv_zones, pv_zones], [pv_masks, cv_masks]
-    ):
-        updatable = ~np.zeros(_dist.shape, "bool")
-        i = 1
-        while True:
-            if updatable.sum() == 0:
-                print("All image region covered, stop expansion")
-                break
-            elif ((_destination_mask != 0) * updatable).sum() == 0:
-                print("All opposite masks covered, stop expansion")
-                break
-            elif i > tolerance:
-                print("Max distance reached")
-                break
-            r = i * 10
-            _expansion_mask = np.logical_and(updatable, _dist < r)
-            _zone[_expansion_mask] = i
-            updatable[_expansion_mask] = False
-            i += 1
-    zone_crit = np.zeros(updatable.shape)
-    orphans = np.logical_or(cv_zones == 0, pv_zones == 0)
-    zone_crit[~orphans] = np.log2(cv_zones[~orphans] / pv_zones[~orphans])
-    zone_crit = (zone_crit - zone_crit.min()) / (zone_crit.max() - zone_crit.min())
-    zone_crit[orphans] = 0
-    return zone_crit
-
 def watershed_masks(unlabelled_mask,
     dapi_mask = None,
     min_distance=None,
@@ -311,6 +314,7 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
     labeled_int_signal_mask = morphology.label(int_signal_mask, connectivity=1)
     zones[(zones < 0) | (zones == 255)] = 0
     # initialize
+    clonal_sizes = []
     spot_sizes = []
     zone_lables = []
     parent_bbox = []
@@ -319,6 +323,8 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
     for region in measure.regionprops(labeled_int_signal_mask):
         region_mask = labeled_int_signal_mask == region.label
         x0, y0, x1, y1 = region.bbox
+        # if x0 == dx0:
+        #     break
         processed_bboxes.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
         avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
         if avg_zone_number == 0:
@@ -330,25 +336,29 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
         )[0]
         for subregion in measure.regionprops(region_dapi_mask):
             # watershed segmentation to get number of cells
-            submask_x0, submask_y0, submask_x1, submask_y1 = subregion.bbox
             distance = ndi.distance_transform_edt(subregion.image)
             local_maxi = feature.peak_local_max(
                 distance, indices=False, footprint=morphology.disk(3)
             )
             markers = measure.label(local_maxi, connectivity=2)
-            labels = segmentation.watershed(-distance, markers, mask=subregion.image)
-            n_cells = labels.max()
-            if n_cells == 0:
-                continue
-            # saving data
-            spot_sizes.append(n_cells)
-            zone_lables.append(avg_zone_number)
-            parent_bbox.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
+            labels = segmentation.watershed(
+                -distance, markers, mask=subregion.image)
+            n_cells = 0
+            for nuclei_mask_region in measure.regionprops(labels):
+                if nuclei_mask_region.equivalent_diameter >= 7.5:
+                    n_cells += 1
+            if n_cells != 0:
+                # saving data
+                clonal_sizes.append(n_cells)
+                spot_sizes.append(subregion.equivalent_diameter)
+                zone_lables.append(avg_zone_number)
+                parent_bbox.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
     spot_sizes_df = pd.DataFrame(
         {
-            "clonal_size": spot_sizes,
+            "clonal_size": clonal_sizes,
             "zone": zone_lables,
             "parent_bbox": parent_bbox,
+            "spot_size_d": spot_sizes
         }
     )
     skipped_bbox = [
