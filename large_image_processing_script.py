@@ -200,14 +200,32 @@ if __name__ == "__main__":
     plt.savefig(output_prefix + "original_figure.pdf")
     plt.close()
 
+    # getting tissue boundry limit on the zone crits
+    img_grey = (255 * color.rgb2gray(img)).astype("uint8")
+    # Erode image edges, which often have really bad GS
+    img_border_mask_filled = find_boundry(img_grey, 1)
+    img_border_mask_eroded = img_border_mask_filled.copy()
+    for i in range(50):
+        img_border_mask_eroded = morphology.binary_erosion(
+            img_border_mask_eroded, morphology.square(5))
+
+    img = img*img_border_mask_eroded[:,:,None]
+    # save an copy for eroded image 
+    _ = plt.figure(figsize=(16, 9))
+    io.imshow(img)
+    plt.savefig(output_prefix + "eroded_original_figure.pdf")
+    plt.close()
+
     vessel_size_l = 2 * width * height / 10000
     # find valid image crops
     valid_crops = find_valid_crops(img[:, :, 2])
     plot_image_crops(img[:,:,2],pd.DataFrame(valid_crops),padding,output_prefix)
     # extract gs channel
-    gs_ica, _, _ = extract_gs_channel(img)
+    # Histogram equlication of GS channel
+    gs_ica, _, raw_gs_ica = extract_gs_channel(img)
 
     # save gs_ica
+    _ = plt.figure(figsize=(16,9))
     io.imshow(gs_ica)
     plt.savefig(output_prefix + "GS_ica.pdf")
     plt.close()
@@ -231,15 +249,15 @@ if __name__ == "__main__":
     ]
     # pool and pruning cropped image masks.
     overall_masks, vessels = pool_masks_from_crops(
-        img, crop_mask_files, padding=padding
+        img, crop_mask_files, img_border_mask_eroded, padding=padding
     )
     #! vessel masks is not pruned!!!
-    good_masks = mask_pruning(overall_masks, vessel_size_l).astype("uint8")
-    vessels = vessels * (good_masks != 0)
+    good_masks = mask_pruning(overall_masks, vessel_size_l)
+    vessels = vessels * good_masks
     good_masks = measure.label(good_masks)
     # CV, PV classification
     cv_features = extract_features(
-        good_masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step
+        good_masks, raw_gs_ica, q1=gs_low, q2=gs_high, step=gs_step
     )
     cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], good_masks)
     # modify CV masks to shrink their borders
@@ -266,10 +284,8 @@ if __name__ == "__main__":
     #! orphan cut off set at 550
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
 
-    # getting tissue boundry limit on the zone crits
-    img_grey = (255 * color.rgb2gray(img)).astype("uint8")
-    img_border_mask_filled = find_boundry(img_grey, 1)
-    zone_crit = zone_crit * img_border_mask_filled
+    # modify zone_crit with valid image border
+    zone_crit = zone_crit * img_border_mask_eroded
     processe_img_mask = np.zeros(img.shape[:2],'bool')
     for crop in valid_crops:
         x0,x1,y0,y1 = crop
@@ -292,18 +308,7 @@ if __name__ == "__main__":
     # Plot zones with image
     plot_zone_with_img(img, zones, fig_prefix=output_prefix + "zones with marker")
     plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
-    # Calculate zonal spot sizes.
-    # if spot_size:
-    #     spot_sizes_df, _ = calculate_clonal_size(img, zones)
-    #     # spot_segmentation_diagnosis(
-    #     #     img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
-    #     # )
-    #     spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
-    #     plot_spot_clonal_sizes(
-    #     spot_sizes_df,
-    #     absolute_number=False,
-    #     figname=output_prefix + "spot_clonal_sizes.pdf",
-    #     )
+
     # Calculate zonal reporter expression levels.
     zone_int = plot_zone_int_probs(
         img[:, :, 0],
@@ -316,3 +321,16 @@ if __name__ == "__main__":
     )
     zone_int.to_csv(output_prefix + "zone int.csv")
 
+    # Calculate zonal spot sizes.
+    if spot_size:
+        spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+        spot_segmentation_diagnosis(
+            img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+        )
+        spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
+        plot_spot_clonal_sizes(
+        spot_sizes_df,
+        absolute_number=False,
+        figname=output_prefix + "spot_clonal_sizes.pdf",
+        )
+    log.close()
