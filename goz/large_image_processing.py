@@ -119,15 +119,17 @@ def merge_overlapping_boxes(valid_crops):
 
 
 def pool_masks_from_crops(img, mask_files, img_border_mask_eroded, padding=250):
-    overall_masks = np.zeros(img.shape[:2], "bool")
+    overall_masks = np.zeros(img.shape[:2], 'uint32')
     vessels = np.zeros(img.shape[:2], "bool")
+    mask_offset = 0
     for fn in mask_files:
         _img = io.imread(fn)
         _vessels = _img[:, :, 1]
         _masks = _img[:, :, 0]
+        _masks[_masks>0] = _masks[_masks>0] + mask_offset
         coords = [int(x) for x in fn.split("/")[-1].split("_")[1].split(" ")]
         top, bottom, left, right = coords
-        _masks = _masks[padding:-padding, padding:-padding] != 0
+        _masks = _masks[padding:-padding, padding:-padding]
         _vessels = _vessels[padding:-padding, padding:-padding] != 0
         overall_masks[
             top + padding : bottom - padding, left + padding : right - padding
@@ -135,21 +137,31 @@ def pool_masks_from_crops(img, mask_files, img_border_mask_eroded, padding=250):
         vessels[
             top + padding : bottom - padding, left + padding : right - padding
         ] = _vessels
+        mask_offset = mask_offset + len(np.unique(_masks)) - 1
     overall_masks = overall_masks * img_border_mask_eroded
     vessels = vessels * img_border_mask_eroded
+    # Merge split masks that land near the edge of image crops
+    overall_masks_labeled = measure.label(overall_masks!=0,connectivity=2)
+    for region in measure.regionprops(overall_masks_labeled):
+        x0,y0,x1,y1 = region.bbox
+        old_labels = overall_masks[x0:x1,y0:y1][region.image]
+        if len(np.unique(old_labels)) > 1:
+            old_labels = [str(x) for x in np.unique(old_labels)]
+            print(
+                'Split mask found and merged: {}'.format(', '.join(old_labels))
+                )
+            overall_masks[x0:x1,y0:y1][region.image] = old_labels[0]
     return overall_masks, vessels
 
 
-def mask_pruning(overall_masks, vessel_size_l, clustering_based_pruning = False):
+def mask_pruning(labeled_masks, vessel_size_l, clustering_based_pruning = False):
     """Use topology features of masks and hierarchical clustering to get rid of bad
     masks.
     """
-    overall_masks = overall_masks.copy()
-    if overall_masks.dtype == bool:
-        overall_masks = morphology.label(overall_masks)
+    labeled_masks = labeled_masks.copy()
     props = pd.DataFrame(
         measure.regionprops_table(
-            overall_masks, properties=("label", "area", "extent", "perimeter")
+            labeled_masks, properties=("label", "area", "extent", "perimeter")
         )
     ).set_index("label")
     props["circularity"] = np.pi * 4 * props.area / np.power(props.perimeter, 2)
@@ -175,8 +187,8 @@ def mask_pruning(overall_masks, vessel_size_l, clustering_based_pruning = False)
         print(
             "{} out of {} masks are kept".format(len(good_masks), valid_props.shape[0])
         )
-        overall_masks[~np.isin(overall_masks, good_masks)] = 0
+        labeled_masks[~np.isin(labeled_masks, good_masks)] = 0
     else:
         good_label = valid_props.index.unique()
-        overall_masks[~np.isin(overall_masks, good_label)] = 0
-    return overall_masks!=0
+        labeled_masks[~np.isin(labeled_masks, good_label)] = 0
+    return labeled_masks
