@@ -1,6 +1,7 @@
 import pandas as pd
 from skimage import io, color, measure
 from scipy import ndimage
+from scipy.signal import find_peaks,peak_widths
 import numpy as np
 import os
 from goz.segmentation import *
@@ -200,10 +201,32 @@ if __name__ == "__main__":
     plt.savefig(output_prefix + "original_figure.pdf")
     plt.close()
 
-    # getting tissue boundry limit on the zone crits
-    img_grey = (255 * color.rgb2gray(img)).astype("uint8")
-    # Erode image edges, which often have really bad GS
-    img_border_mask_filled = find_boundry(img_grey, 1)
+    # find the threshold for boundary discovery based on peak finding on the 
+    # histogram from channel intensity maxima.
+
+    # Use max intensity of each channel as criteria
+    dapi = img[:,:,2]
+    # ignore 0 here
+    img_hist,bins = np.histogram(
+        dapi.flatten(), bins=128, density=True, range=(1,255))
+    peaks, peaks_params = find_peaks(
+        img_hist,height=.005, distance=5, width=2, rel_height=.9)
+    # dignostic scripts outputing the the peaks.
+    p_widths = peak_widths(img_hist,peaks,rel_height=.90)
+    plt.plot(img_hist)
+    plt.plot(peaks, img_hist[peaks], "x")
+    plt.hlines(*p_widths[1:], color="C3")
+    plt.savefig(output_prefix + 'DAPI intensity distribution peaks.pdf')
+
+    # Two boundries are defined, both on the left side and right side of the 
+    # first peak. Normally should use the left side one, however, sometimes the 
+    # image have artifacts near the boundary, cause another peak to form before 
+    # the actual peak fo the signal, thus in this case the right side boundry 
+    # are used.
+ 
+    img_border_mask_filled = find_boundry(dapi)
+
+    # eroding regions near the boundry.
     img_border_mask_eroded = img_border_mask_filled.copy()
     for i in range(50):
         img_border_mask_eroded = morphology.binary_erosion(
@@ -254,12 +277,12 @@ if __name__ == "__main__":
     #! vessel masks is not pruned!!!
     good_masks = mask_pruning(overall_masks, vessel_size_l)
     vessels = vessels * good_masks
-    good_masks = measure.label(good_masks)
     # CV, PV classification
     cv_features = extract_features(
         good_masks, raw_gs_ica, q1=gs_low, q2=gs_high, step=gs_step
     )
-    cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], good_masks)
+    cv_labels, pv_labels = pv_classifier(
+        cv_features.loc[:, "I0":], good_masks, max_cv_pv_ratio=1.5)
     # modify CV masks to shrink their borders
     cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
     pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
@@ -269,15 +292,6 @@ if __name__ == "__main__":
     plot3channels(
         img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
     )
-
-    # find lobules, currently ignored for large image
-    # cv_masks = cv_masks.astype('uint8')
-    # _, lobules_sizes, lobule_edges = find_lobules(
-    #     cv_masks, lobule_name=output_prefix)
-    # lobules_sizes.to_csv(output_prefix + "lobule_sizes.csv")
-    # plot3channels(
-    #     lobule_edges, cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "lobules"
-    # )
 
     # Defining zones
     # Calculate distance projections
