@@ -7,6 +7,7 @@ from goz.plotting import *
 from goz.find_zones import *
 from scipy.stats import ttest_ind, ttest_ind_from_stats
 from itertools import product
+import seaborn as sns
 
 '''
 Scripts for making most of the figures in the paper
@@ -57,20 +58,38 @@ def plot_spot_clonal_sizes(
         plt.savefig(figname)
         plt.close()
 
-os.chdir("/home2/s190548/work_zhu/images/New Tif")
-_=sns.plotting_context('paper', font_scale = 2)
-cond_folders = [
-    '/home2/s190548/work_zhu/images/New Tif/Normal  30%',
-    '/home2/s190548/work_zhu/images/New Tif/6 months 30%']
 
-markers = []
-for cond_folder in cond_folders:
-    markers += [x.split("-")[0] for x in os.listdir(cond_folder) if "tif" in x]
-markers = list(set(markers))
+# Figure 2e
+os.chdir("z:/images/New Tif")
+files = [
+    'Normal  30%/Gs-20190905-6w-F23-2/zone int.csv',
+    'Normal  30%/Cyp1a2-20190929-8w-Ctr-m23-3/zone int.csv',
+    'Normal  30%/Gls2-20190614-6w-F-1-2/zone int.csv',
+]
+plot_data = pd.DataFrame()
+for marker, fn in zip(['GS','CYP1A2','GSL2'],files):
+    _df = pd.read_csv(fn, index_col=0)
+    _df['Marker'] = marker
+    _df.zone = [x.replace("Z", "") for x in _df.zone.values]
+    _df.zone = _df.zone.str.zfill(2)
+    _df = _df.sort_values('zone')
+    plot_data = plot_data.append(_df)
+
+_=sns.set(font_scale = 1.5, style='white')
+g = sns.FacetGrid(
+    plot_data,col='Marker',sharey=True, aspect=1.3,
+    )
+g = g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp')
+g.set_titles(col_template='')
+g.set_xticklabels([])
+g.set_xlabels('GOZ layers')
+g.set_ylabels('% tomato area in layer')
+plt.legend(bbox_to_anchor = (1.2,0.5), loc='center left')
+plt.savefig('Figure 2e.pdf')
 
 ############################################################################
 # Figure 3a
-
+os.chdir("/home2/s190548/work_zhu/images/New Tif")
 cond_folders = ['/home2/s190548/work_zhu/images/New Tif/Normal  30%']
 markers = []
 for cond_folder in cond_folders:
@@ -83,13 +102,15 @@ plot_data_t0 = plot_data_t0.sort_values("zone")
 plot_data_t0.Condition = plot_data_t0.Condition.apply(lambda x: x.split(' ')[-1].upper())
 plot_data_t0 = plot_data_t0.sort_values('Condition')
 plot_data_t0 = plot_data_t0.rename({'Condition':'Marker'}, axis=1)
+
 # plot_data_t0 = plot_data_t0[~plot_data_t0.zone.isin(['01','24'])]
 pan = ['Apoc4','Pklr']
 zone1 = ['Arg11', 'Arg12','Gls2']
 perip = ['Sox9','Krt19']
 zone3 = ['Gs','Cyp1a2','Oat', 'Axin2']
 zone2 = ['Hamp2','Mup3','Tert']
-sns.set(style='white',font_scale=2.5)
+
+sns.set(style='white',font_scale=2)
 fig, axes = plt.subplots(2,3, figsize=(20,10))
 axes = axes.ravel()
 i = 0
@@ -103,16 +124,21 @@ for marker_list, list_name in zip(
     g = sns.lineplot(
         x='zone', y='percent of cellular tomato area in zone no exp', hue='Marker',
         data = _plot_data, ax=axes[i])
-    g.axes.set_xlabel('Goz zones')
+    g.axes.set_xlabel('GOZ layers')
     g.axes.set_ylabel('')
     g.axes.set_xticklabels([])
     g.axes.set_title(list_name)
-    g.axes.legend(bbox_to_anchor = (1,.5), loc='center left', fontsize=20)
-    i+=1
-fig.delaxes(axes[i])
+    handles, labels = axes[i].get_legend_handles_labels()  
+    if i<4:
+        g.axes.legend(handles[1:], labels[1:], loc=0)  
+        i+=1
+    else:
+        g.axes.legend(handles[1:], labels[1:], loc=1)  
+fig.delaxes(axes[5])
 plt.tight_layout()
-plt.savefig('/home2/s190548/work_zhu/images/New Tif/Figure3a.pdf')
+plt.savefig('/home2/s190548/work_zhu/images/New Tif/Figure 3a.pdf')
 plt.close()
+
 
 
 #############################################################################
@@ -130,7 +156,9 @@ plot_data_t6m = plot_data_t6m.sort_values("zone")
 plot_data_t6m.Condition = plot_data_t6m.Condition.apply(lambda x: x.split(' ')[-1].upper())
 plot_data_t6m = plot_data_t6m.sort_values('Condition')
 plot_data_t6m = plot_data_t6m.rename({'Condition':'Marker'}, axis=1)
+plot_data_t6m = plot_data_t6m[plot_data_t6m.Marker!='TERT']
 
+sns.set(style='white',font_scale=2)
 fig, axes = plt.subplots(2,3, figsize=(20,10))
 axes = axes.ravel()
 i = 0
@@ -144,15 +172,19 @@ for marker_list, list_name in zip(
     g = sns.lineplot(
         x='zone', y='percent of cellular tomato area in zone no exp', hue='Marker',
         data = _plot_data, ax=axes[i])
-    g.axes.set_xlabel('Goz zones')
+    g.axes.set_xlabel('GOZ layers')
     g.axes.set_ylabel('')
     g.axes.set_xticklabels([])
     g.axes.set_title(list_name)
-    g.axes.legend(bbox_to_anchor = (1,.5), loc='center left', fontsize=20)
-    i+=1
-fig.delaxes(axes[i])
+    handles, labels = axes[i].get_legend_handles_labels()  
+    if i<4:
+        g.axes.legend(handles[1:], labels[1:], loc=0)  
+        i+=1
+    else:
+        g.axes.legend(handles[1:], labels[1:], loc=1)  
+fig.delaxes(axes[5])
 plt.tight_layout()
-plt.savefig('/home2/s190548/work_zhu/images/New Tif/Figure3b.pdf')
+plt.savefig('/home2/s190548/work_zhu/images/New Tif/Figure 3b.pdf')
 plt.close()
 
 
@@ -266,9 +298,14 @@ for marker in pooled_data.marker.unique():
         plt.close(fig)
 
 ################################################################################
-'''
-for marker in pooled_data.marker.unique():
-    bins = [0,1,99]
+
+# Figure 4e expanded clones
+
+for marker in ['HAMP2','MUP3']:
+    if marker == 'HAMP2':
+        bins = [0,4,99]
+    else:
+        bins = [0,2,99]
     _marker_pooled_data = pooled_data[pooled_data.marker == marker]
     _binned_data = binning_clonal_sizes(_marker_pooled_data, bins=bins)
     _marker_data_abs_mean = pd.DataFrame()
@@ -289,17 +326,18 @@ for marker in pooled_data.marker.unique():
         _ratio['marker'] = marker
         _marker_data_ratio = _marker_data_ratio.append(_ratio)
     # plotting
-    _plot_data = _marker_data_ratio[_marker_data_ratio.clonal_sizes=='>=2']
+    expanded = _marker_data_ratio.clonal_sizes.unique()[1]
+    _plot_data = _marker_data_ratio[_marker_data_ratio.clonal_sizes==expanded]
     _plot_data.sort_values('Condition', ascending=False, inplace=True)
     _ = plt.figure(figsize=(16,6))
-    sns.boxplot(
+    sns.swarmplot(
         data=_plot_data, x='zone',y='filler',hue='Condition')
     plt.ylabel('Ratio of expanded clones')
     plt.xlabel('GOZ Zones')
     plt.title(marker)
     plt.savefig(marker + ' spot expanded ratio.pdf',bbox_inches='tight')
     plt.close(fig)
-'''
+
 '''
 binned_data = binning_clonal_sizes(pooled_data, [0,1,2,99])
 plot_data_ratio = pd.DataFrame()
@@ -365,6 +403,34 @@ for _df in plot_data.groupby('Condition'):
     figname = marker + ' big tif figure.pdf'
     plt.savefig(figname,bbox_inches='tight')
     plt.close()
+
+# AAV GOZ pattern
+os.chdir("/home2/s190548/work_zhu/images/New Tif")
+cond_folders = ['/home2/s190548/work_zhu/images/New Tif/big tif']
+markers = ['AAV']
+plot_data_aav = get_pooled_zonal_data(cond_folders, markers)
+plot_data_aav.zone = [x.replace("Z", "") for x in plot_data_aav.zone.values]
+plot_data_aav.zone = plot_data_aav.zone.str.zfill(2)
+plot_data_aav = plot_data_aav.sort_values("zone")
+plot_data_aav.Condition = plot_data_aav.Condition.apply(lambda x: x.split(' ')[-1].upper())
+plot_data_aav = plot_data_aav.sort_values('Condition')
+plot_data_aav = plot_data_aav.rename({'Condition':'Marker'}, axis=1)
+
+sns.set(style='white',font_scale=2)
+fig, axes = plt.subplots(2,3, figsize=(10,5))
+sns.lineplot(
+    x='zone', y='percent of cellular tomato area in zone no exp',
+    data = plot_data_aav)
+g.axes.set_xlabel('GOZ layers')
+g.axes.set_ylabel('')
+g.axes.set_xticklabels([])
+g.axes.set_title(list_name)
+
+# plt.tight_layout()
+# plt.savefig('/home2/s190548/work_zhu/images/New Tif/Figure 3b.pdf')
+# plt.close()
+
+
 
 
 '''# Figure 6c
