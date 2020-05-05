@@ -2,11 +2,10 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
+from sklearn.neighbors import NearestNeighbors
 from skimage import io, measure, morphology, filters, color
 import scipy.ndimage as ndi
-from sklearn.decomposition import FastICA
-from sklearn.decomposition import PCA
-
+from sklearn.decomposition import FastICA, PCA
 
 def segmenting_vessels(
     img, dark_t=20, dapi_channel=2, vessel_size_t=2, dapi_dilation_r=10
@@ -66,16 +65,66 @@ def extract_features(labeled_mask, raw_gs_ica, q1=0.25, q2=0.75, step=0.05):
     return mask_features
 
 
-def pv_classifier(cv_features, labeled_mask):
+def pv_classifier(cv_features, labeled_mask, max_cv_pv_ratio = 2):
+    model_data = cv_features.copy()
     km = KMeans(2)
-    pca = PCA(2, whiten=True)
-    gs_pca = pca.fit_transform(scale(cv_features))
-    labels = km.fit_predict(gs_pca)
-    class_median_int = cv_features.groupby(labels).median_gs.median().sort_values()
+    pca = PCA(2, whiten=True,random_state=0)
+    adjust_pv = None
+    cv_feature_pca = pca.fit_transform(model_data)
+    labels = km.fit_predict(cv_feature_pca)
+    class_median_int = model_data.groupby(labels).median_gs.median().sort_values()
     high_int_label = class_median_int.index[1]
-    cv_labels = cv_features.index[labels == high_int_label]
-    non_gs_labels = cv_features.index[labels != high_int_label]
-    return cv_labels, non_gs_labels
+    cv_labels = model_data.index[labels == high_int_label]
+    pv_labels = model_data.index[labels != high_int_label]
+    num_cv_old, num_pv_old = len(cv_labels), len(pv_labels)
+    # Theoraticall the ration between number of CV and PV should be around 1
+    # Guided with this, a backup mechnism is designed to adjust the number of 
+    # CV and PV buy assigning additional vessels to the minor vessel class using
+    # KNN algorithm. 
+    if len(cv_labels) / len(pv_labels) > max_cv_pv_ratio:
+        adjust_pv = True
+        seed_labels = pv_labels
+    elif len(cv_labels) / len(pv_labels) < 1/max_cv_pv_ratio:
+        adjust_pv = False
+        seed_labels = cv_labels
+    else:
+        print('Number of CV and PV: {}, {}'.format(num_cv_old, num_pv_old))
+        return cv_labels, pv_labels
+    # Starting adjusting using KNN.
+    if adjust_pv is not None:
+        desired_minor_class_size = int(
+            len(model_data) * 1/(max_cv_pv_ratio+1)
+            ) + 1
+        num_new = 0
+        n_neighbors = 1
+        while len(seed_labels) <= desired_minor_class_size:
+            if num_new == 0:
+                n_neighbors += 1
+            else:
+                n_neighbors = 2
+            nbrs = NearestNeighbors(
+                n_neighbors=n_neighbors,
+                algorithm='ball_tree'
+                ).fit(cv_feature_pca)
+            _, indices = nbrs.kneighbors(cv_feature_pca)
+            iloc_idx = model_data.index.isin(seed_labels)
+            neighbor_labels = np.unique(indices[iloc_idx].flatten())
+            neighbor_labels = cv_features.index[neighbor_labels]
+            num_new = len([x for x in neighbor_labels if x not in seed_labels])
+            seed_labels = list(set(neighbor_labels)|set(seed_labels))
+        if adjust_pv:
+            pv_labels = seed_labels
+            cv_labels = [x for x in model_data.index if x not in pv_labels]
+        else:
+            cv_labels = seed_labels
+            pv_labels = [x for x in model_data.index if x not in cv_labels]
+        num_cv_new, num_pv_new = len(cv_labels), len(pv_labels)
+        print('Number of CV adjusted from {} to {}.'.format(
+            num_cv_old, num_cv_new))
+        print('Number of PV adjusted from {} to {}.'.format(
+            num_pv_old, num_pv_new))
+    return cv_labels, pv_labels
+
 
 
 def extract_gs_channel(img, gs_channel=1):
@@ -337,19 +386,18 @@ def shrink_cv_masks(
     return new_masks
 
 
-def find_boundry(grey_scale_image, threshold=0):
-    img_border_mask = grey_scale_image > threshold
-    contours = measure.find_contours(img_border_mask + 0, 0)
-    # biggest contour
-    contour = sorted(contours, key=lambda x: len(x))[-1]
-    # Create an empty image to store the masked array
-    r_mask = np.zeros_like(img_border_mask, dtype="bool")
-    # Create a contour image by using the contour coordinates rounded to their 
-    # nearest integer value
-    r_mask[
-        np.round(contour[:, 0]).astype("int"),
-        np.round(contour[:, 1]).astype("int")
-    ] = 1
-    # Fill in the hole created by the contour boundary
-    r_mask = ndi.binary_fill_holes(r_mask)
-    return r_mask
+def find_boundry(dapi):
+    x10, y10 = [int(x/10) for x in dapi.shape]
+    img_10th = transform.resize(dapi,(x10,y10))
+    x100, y100 = [int(x/10) for x in img_10th.shape]
+    img_100h = transform.resize(img_10th,(x100,y100))
+    img_100h_padded = util.pad(img_100h,10)
+    edge_t = filters.threshold_otsu(img_100h_padded)
+    edges = feature.canny(img_100h_padded>edge_t,sigma=3)
+    edges = morphology.closing(edges,morphology.disk(3))
+    dapi_boundry = binary_fill_holes(edges)
+    dapi_boundry = dapi_boundry[10:-10,10:-10]
+    dapi_boundry = transform.resize(dapi_boundry, (x10,y10))
+    dapi_boundry = transform.resize(dapi_boundry, (dapi.shape))
+    dapi_boundry = dapi_boundry
+    return dapi_boundry.astype(bool)
