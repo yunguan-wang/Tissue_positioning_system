@@ -268,12 +268,18 @@ if __name__ == "__main__":
             prefix=output_prefix + "Marker",
         )
         zone_int.to_csv(output_prefix + "zone int.csv")
-        
+
         # Calculate zonal spot clonal sizes.
         if spot_size:
-            spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+            spot_sizes_df, skipped_boxes, valid_nuclei_mask = calculate_clonal_size(
+                img, zones, tomato_erosion=1
+            )
             spot_segmentation_diagnosis(
-                img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+                img,
+                spot_sizes_df,
+                skipped_boxes,
+                valid_nuclei_mask,
+                fig_prefix=output_prefix,
             )
             plot_spot_clonal_sizes(
                 spot_sizes_df,
