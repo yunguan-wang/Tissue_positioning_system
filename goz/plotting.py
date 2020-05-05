@@ -327,18 +327,45 @@ def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
                 i += 1
     return pooled_data
 
-def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bboxes, fig_prefix='./'):
+def spot_segmentation_diagnosis(
+    img, spot_sizes_df,skipped_bboxes, valid_nuclei_mask, fig_prefix='./'):
     '''
     Plot random 100 spot patches from both the good spots and bad spots.
+
+    Parameters
+    ========
+    img : np.array
+        Original input image
+
+    spot_sizes_df : pd.DataFrame
+        Table of spot sizes returned by the `calculate_clonal_size` function.
+        Must have `parent_bbox` column, which specified the bbox of observed 
+        hapatocyte clone.
+
+    skipped_bboxes : list
+        List of bboxes of clones where no nuclei are found within.
+        
+    valid_nuclei_mask : np.arry
+        masks of valid nuclei within each clone.
+    
+    Returns
+    ========
+    None
+
     '''
     _, axes = plt.subplots(10,10, figsize=(40,40))
     axes = axes.ravel()
     spot_sizes_df = spot_sizes_df.set_index('parent_bbox').copy()
     n_subplots = np.min([100, spot_sizes_df.index.nunique()])
-    random_patches = np.random.choice(spot_sizes_df.index.unique(),n_subplots, False)
+    random_patches = np.random.choice(
+        spot_sizes_df.index.unique(),n_subplots, False)
+    valid_nuclei_mask = valid_nuclei_mask ^ \
+        morphology.erosion(valid_nuclei_mask,morphology.disk(1))
     for i,bbox in enumerate(random_patches):
         px0,py0,px1,py1 = [int(x) for x in bbox.split(',')]
         axes[i].imshow(img[px0:px1,py0:py1,:], vmax=255)
+        axes[i].imshow(
+            valid_nuclei_mask[px0:px1,py0:py1], cmap='gray', alpha=.5)
         axes[i].set_title('+'.join(spot_sizes_df.clonal_size[[bbox]].astype(str)))
     plt.savefig(fig_prefix + 'valid_marker_spots.pdf')
     plt.close()
@@ -352,6 +379,7 @@ def spot_segmentation_diagnosis(img, spot_sizes_df,skipped_bboxes, fig_prefix='.
         axes[i].imshow(img[px0:px1,py0:py1,:],vmax=255)
     plt.savefig(fig_prefix+'invalid_marker_spots.pdf')
     plt.close()
+
 
 def plot_spot_clonal_sizes(
     spot_sizes_df,
