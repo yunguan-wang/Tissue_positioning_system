@@ -128,21 +128,21 @@ def pv_classifier(cv_features, labeled_mask, max_cv_pv_ratio = 2):
 
 
 def extract_gs_channel(img, gs_channel=1):
-    """Fix color cross talk be using ICA
+    """Fix color cross talk by using ICA
     """
-    # Todo still not working all the time. Need to fix it
     ica = FastICA(3, random_state=0)
     ica_transformed = ica.fit_transform(img.reshape(-1, 3))
     # calculate the correlation between the transformed data with target channel
     # This is the correct way of doing this because neither the mixing nor 
     # unmixing matrix reflects the best GS channel from the transformed data.
     corr = np.corrcoef(
-        img.reshape(-1, 3), ica_transformed, rowvar=False
+        scale(img.reshape(-1, 3)), scale(ica_transformed), rowvar=False
         )[:3, 3:]
     crit = np.argmax(abs(corr), axis=0) == gs_channel
-    # Rare case 1 where the gs channel is not dominant in any components
+    # Rare case 1 where the gs channel is not dominant in any components. In 
+    # this case, it is better to use the raw channel with thresholding.
     if crit.sum() == 0:
-        gs_component = np.argmax(abs(corr), axis=1)[gs_channel]
+        gs_component = None
     # Rare case 2 where the gs channel is not dominant in more than 1 components
     elif crit.sum() > 1:
         gs_component = np.argmax(abs(corr[:, crit]), axis=1)[gs_channel]
@@ -159,14 +159,20 @@ def extract_gs_channel(img, gs_channel=1):
         )
     print(ica.mixing_, gs_component, gs_component_mixing,gs_component_unmixing)
     '''
-    gs_ica = ica_transformed[:, gs_component]
-    gs_ica = minmax_scale(gs_ica) * 255
-    gs_ica = gs_ica.reshape(img.shape[:2]).astype(np.uint8)
-    if gs_ica.mean() > 128:
-        gs_ica = 255 - gs_ica
+    if gs_component is not None:
+        gs_ica = ica_transformed[:, gs_component]
+        gs_ica = minmax_scale(gs_ica) * 255
+        gs_ica = gs_ica.reshape(img.shape[:2]).astype(np.uint8)
+        if gs_ica.mean() > 128:
+            gs_ica = 255 - gs_ica
+        raw_gs_ica = gs_ica
+        gs_ica = gs_ica > filters.threshold_otsu(gs_ica)
+    else:
+        gs_ica = img[:,:,gs_channel]
+        gs_t = filters.threshold_otsu(gs_ica[gs_ica>10])
+        raw_gs_ica = gs_ica
+        gs_ica = gs_ica > gs_t
     # Returns ICA processed GS channel for better classification.
-    raw_gs_ica = gs_ica
-    gs_ica = gs_ica > filters.threshold_otsu(gs_ica)
     return gs_ica, ica, raw_gs_ica
 
 
