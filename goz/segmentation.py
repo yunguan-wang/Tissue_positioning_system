@@ -12,10 +12,13 @@ def segmenting_vessels(
 ):
     # use gray scale image as vein signal
     # img_gray = (255*color.rgb2gray(img)).astype('uint8')
-    # NOTE reverted back to original dapi thresholding
-    img_gray = img[:, :, 2]
+    # NOTE allows for single channel input
+    if len(img.shape) == 3:
+        img_gray = img[:, :, dapi_channel]
+    else:
+        img_gray = img
     # NOTE This dapi dilation step expands the white area around DAPI and 
-    # reduced the noise masks.
+    # reduced the noise masks. Useful in large image processing.
     if dapi_dilation_r > 0:
         img_gray = morphology.dilation(img_gray, selem=morphology.disk(dapi_dilation_r))
     veins = img_gray < dark_t
@@ -43,7 +46,8 @@ def segmenting_vessels(
 def extract_features(labeled_mask, raw_gs_ica, q1=0.25, q2=0.75, step=0.05):
     # a simple erosion to get the outside ring of the mask, where GS is mostly 
     # expressed.
-    eroded = morphology.erosion(labeled_mask, morphology.disk(5))
+    selem = morphology.disk(20)
+    eroded = morphology.erosion(labeled_mask, selem)
     labeled_mask = (labeled_mask - eroded).copy()
     # background mask is thrown away here.
     mask_features = pd.DataFrame(index=sorted(np.unique(labeled_mask))[1:])
@@ -262,11 +266,9 @@ def segmenting_vessels_gs_assisted(
         vessel_size_t=vessel_size_t,
         dapi_dilation_r=dapi_dilation_r,
     )
-    gs_dapi_mask = gs_ica | (vessels != 0)
+    gs_dapi_mask = morphology.opening(gs_ica,morphology.disk(5)) | (vessels != 0)
     # dilate the new mask a little bit to reduce the gap size.
-    # Todo, this step could be improved? Not really necessary?
-    selem = morphology.disk(1)
-    gs_dapi_mask = morphology.binary_dilation(gs_dapi_mask, selem)
+    gs_dapi_mask = filters.gaussian(gs_dapi_mask, 1) > 0
     # Calculate each pixels distance to pre-existing vessels
     labeled_vessels = measure.label(vessels, connectivity=1)  # labeling
     # get rid of background mask
@@ -283,16 +285,9 @@ def segmenting_vessels_gs_assisted(
         np.argmin(dist_to_mask, axis=0) + 1
     )  # To which vessel is the min distance observed
 
-    # Iterate through each combined mask from GS and DAPI, evaluate the minimal 
-    # distance of each maskto pre-existing vessel, if the distance is very small
-    # , merge the mask with existing vessel mask.
-    # Todo
-    #! Important, I did not differentiate PV from CV here, thus the code might 
-    # merge a GS intensive region
-    #! with a nearby PV.
     labeled = measure.label(gs_dapi_mask, connectivity=2)
     size_cutoff = gs_added_mask_size_t * img.shape[0] * img.shape[1] / 10000
-    # make newly formed GS masks near existing vessel masks inherit the vessel 
+    # Make newly formed GS masks near existing vessel masks inherit the vessel 
     # labels.
     merged_mask = labeled_vessels
     new_label = np.max(labeled_vessels) + 1
@@ -323,18 +318,20 @@ def segmenting_vessels_gs_assisted(
         merged_mask = new_merged_mask
         print("Continue merging neighboring masks...")
         new_merged_mask, _ = merge_neighboring_vessels(merged_mask, max_dist=max_dist)
-    # Returning not only masks, but also GS_ICA channels.
 
-    # getting rid of very small masks formed by GS
-    masks_sizes = pd.DataFrame(
-        measure.regionprops_table(
-            new_merged_mask, properties=["label", "area", "centroid"]
-        )
-    )
-    small_masks = masks_sizes[masks_sizes.area < size_cutoff].label.values
-    new_merged_mask[np.isin(new_merged_mask, small_masks)] = 0
+    # Getting rid of very small masks formed by GS and fillholes
+    selem = morphology.disk(10)
+    new_merged_mask = morphology.closing(new_merged_mask, selem)
 
-    return new_merged_mask, raw_gs_ica, vessels
+    masks = np.zeros(new_merged_mask.shape, dtype=np.int64)
+    for region in measure.regionprops(new_merged_mask):
+        if region.area > size_cutoff:
+            label = region.label
+            x0, y0, x1, y1 = region.bbox
+            filled = region.filled_image
+            masks[x0:x1, y0:y1][filled] = label
+
+    return masks, raw_gs_ica, vessels
 
 
 def shrink_cv_masks(
@@ -379,12 +376,16 @@ def shrink_cv_masks(
                 raise ValueError
             if (
                 (_mask_type == "cv")
-                & (area_vessel / area < 0.1)
+                & (area_vessel / area < 0.05)
                 & (keep_non_vesseled_gs)
             ):
                 # if the mask is a CV mask and there is a drastic reduction when look
                 # at vessel mask, it means the mask is still a CV mask but the vessel
                 # if not sliced, thus we keep the whole CV mask
+                selem = morphology.disk(25)
+                area_image = morphology.binary_erosion(area_image,selem)
+                if area_image.sum() < 1000:
+                    continue
                 new_masks[min_row:max_row, min_col:max_col][area_image] = label
             else:
                 # otherwise, only the vesseled part will be kept
