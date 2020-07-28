@@ -184,7 +184,7 @@ if __name__ == "__main__":
     else:
         output_prefix = output
     if not os.path.exists(output_prefix):
-        os.mkdir(output_prefix)
+        os.makedirs(output_prefix)
     
     # make log file
     log_fn = output_prefix + "log"

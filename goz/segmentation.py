@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
 from sklearn.neighbors import NearestNeighbors
-from skimage import io, measure, morphology, filters, color
+from skimage import io, measure, morphology, filters, color, transform
 import scipy.ndimage as ndi
 from sklearn.decomposition import FastICA, PCA
 

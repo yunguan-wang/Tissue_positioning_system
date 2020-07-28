@@ -430,6 +430,37 @@ g.axes.set_title(list_name)
 # plt.savefig('/home2/s190548/work_zhu/images/New Tif/Figure 3b.pdf')
 # plt.close()
 
+# IZ50
+
+os.chdir("/home2/s190548/work_zhu/images/New Tif")
+cond_folders = ['/home2/s190548/work_zhu/images/New Tif/Normal  30%']
+markers = []
+for cond_folder in cond_folders:
+    markers += [x.split("-")[0] for x in os.listdir(cond_folder) if "tif" in x]
+markers = list(set(markers))
+plot_data_t0 = get_pooled_zonal_data(cond_folders, markers)
+plot_data_t0.zone = [x.replace("Z", "") for x in plot_data_t0.zone.values]
+plot_data_t0.zone = plot_data_t0.zone.str.zfill(2)
+plot_data_t0 = plot_data_t0.sort_values("zone")
+plot_data_t0.Condition = plot_data_t0.Condition.apply(lambda x: x.split(' ')[-1].upper())
+plot_data_t0 = plot_data_t0.sort_values('Condition')
+plot_data_t0 = plot_data_t0.rename({'Condition':'Marker'}, axis=1)
+
+n_zones = 24
+avg_zones = plot_data_t0.groupby(['Marker','zone'])[
+    'percent of cellular tomato area in zone no exp'].mean()
+avg_zones = avg_zones.reset_index()
+df_iz50 = pd.Series(index=avg_zones.Marker.unique())
+for marker in avg_zones.Marker.unique():
+    _marker_zone = avg_zones[avg_zones.Marker==marker][
+        'percent of cellular tomato area in zone no exp'
+        ]
+    _marker_zone = _marker_zone.sort_values(ascending=False)
+    _marker_zone.index = np.arange(1,1+_marker_zone.shape[0])
+    # _marker_zone = _marker_zone - _marker_zone.min()
+    _below_50 = _marker_zone<=.5 * _marker_zone.max()
+    _iz50 = _below_50.sum()/(n_zones-1)
+    df_iz50[marker] = _iz50
 
 
 
