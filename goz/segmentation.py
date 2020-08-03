@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
 from sklearn.neighbors import NearestNeighbors
-from skimage import io, measure, morphology, filters, color, transform
+from skimage import io, measure, morphology, filters, color, transform, util, feature
 import scipy.ndimage as ndi
 from sklearn.decomposition import FastICA, PCA
 
@@ -394,17 +394,30 @@ def shrink_cv_masks(
 
 
 def find_boundry(dapi):
-    x10, y10 = [int(x/10) for x in dapi.shape]
-    img_10th = transform.resize(dapi,(x10,y10))
-    x100, y100 = [int(x/10) for x in img_10th.shape]
-    img_100h = transform.resize(img_10th,(x100,y100))
-    img_100h_padded = util.pad(img_100h,10)
-    edge_t = filters.threshold_otsu(img_100h_padded)
-    edges = feature.canny(img_100h_padded>edge_t,sigma=3)
-    edges = morphology.closing(edges,morphology.disk(3))
-    dapi_boundry = binary_fill_holes(edges)
-    dapi_boundry = dapi_boundry[10:-10,10:-10]
-    dapi_boundry = transform.resize(dapi_boundry, (x10,y10))
-    dapi_boundry = transform.resize(dapi_boundry, (dapi.shape))
-    dapi_boundry = dapi_boundry
-    return dapi_boundry.astype(bool)
+    # x10, y10 = [int(x/10) for x in dapi.shape]
+    # img_10th = transform.resize(dapi,(x10,y10))
+    # x100, y100 = [int(x/10) for x in img_10th.shape]
+    # img_100h = transform.resize(img_10th,(x100,y100))
+    # img_100h_padded = util.pad(img_100h,10)
+    # edge_t = filters.threshold_otsu(img_100h_padded)
+    # edges = feature.canny(img_100h_padded>edge_t,sigma=3)
+    # edges = morphology.closing(edges,morphology.disk(3))
+    # dapi_boundry = ndi.binary_fill_holes(edges)
+    # dapi_boundry = dapi_boundry[10:-10,10:-10]
+    # dapi_boundry = transform.resize(dapi_boundry, (x10,y10))
+    # dapi_boundry = transform.resize(dapi_boundry, (dapi.shape))
+    # dapi_boundry = dapi_boundry
+    boundry_masks = filters.gaussian(dapi>50, 4)*1.0
+    boundry_masks = filters.gaussian(boundry_masks>0, 4)*1.0
+    boundry_masks = filters.gaussian(boundry_masks>0, 4)*1.0
+    labeled_boundry_masks = measure.label(boundry_masks)
+    rps_table = pd.DataFrame(measure.regionprops_table(
+        labeled_boundry_masks, properties=['label','area']))
+    mask_label = rps_table.loc[rps_table.area.idxmax(),'label']
+    boundry_masks = labeled_boundry_masks == mask_label
+    boundry_masks = ndi.binary_fill_holes(boundry_masks)
+    img_border_mask_eroded = boundry_masks.copy()
+    for i in range(50):
+        img_border_mask_eroded = morphology.binary_erosion(
+            img_border_mask_eroded, morphology.disk(2))
+    return img_border_mask_eroded

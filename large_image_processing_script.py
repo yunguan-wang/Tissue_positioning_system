@@ -1,7 +1,7 @@
 import pandas as pd
 from skimage import io, color, measure
 from scipy import ndimage
-from scipy.signal import find_peaks,peak_widths
+# from scipy.signal import find_peaks,peak_widths
 import numpy as np
 import os
 from goz.segmentation import *
@@ -194,6 +194,7 @@ if __name__ == "__main__":
     print("Prosessing {}".format(input_tif_fn))
     print("Parameters: {}".format(args))
     img = io.imread(input_tif_fn)
+    dapi = img[:,:,2]
 
     # save an copy for reference
     _ = plt.figure(figsize=(16, 9))
@@ -201,38 +202,31 @@ if __name__ == "__main__":
     plt.savefig(output_prefix + "original_figure.pdf")
     plt.close()
 
-    # find the threshold for boundary discovery based on peak finding on the 
-    # histogram from channel intensity maxima.
+    # # find the threshold for boundary discovery based on peak finding on the 
+    # # histogram from channel intensity maxima.
 
-    # Use max intensity of each channel as criteria
-    dapi = img[:,:,2]
-    # ignore 0 here
-    img_hist,bins = np.histogram(
-        dapi.flatten(), bins=128, density=True, range=(1,255))
-    peaks, peaks_params = find_peaks(
-        img_hist,height=.005, distance=5, width=2, rel_height=.9)
-    # dignostic scripts outputing the the peaks.
-    p_widths = peak_widths(img_hist,peaks,rel_height=.90)
-    plt.plot(img_hist)
-    plt.plot(peaks, img_hist[peaks], "x")
-    plt.hlines(*p_widths[1:], color="C3")
-    plt.savefig(output_prefix + 'DAPI intensity distribution peaks.pdf')
+    # # Use max intensity of each channel as criteria
+    # # ignore 0 here
+    # img_hist,bins = np.histogram(
+    #     dapi.flatten(), bins=128, density=True, range=(1,255))
+    # peaks, peaks_params = find_peaks(
+    #     img_hist,height=.005, distance=5, width=2, rel_height=.9)
+    # # dignostic scripts outputing the the peaks.
+    # p_widths = peak_widths(img_hist,peaks,rel_height=.90)
+    # plt.plot(img_hist)
+    # plt.plot(peaks, img_hist[peaks], "x")
+    # plt.hlines(*p_widths[1:], color="C3")
+    # plt.savefig(output_prefix + 'DAPI intensity distribution peaks.pdf')
 
-    # Two boundries are defined, both on the left side and right side of the 
-    # first peak. Normally should use the left side one, however, sometimes the 
-    # image have artifacts near the boundary, cause another peak to form before 
-    # the actual peak fo the signal, thus in this case the right side boundry 
-    # are used.
+    # # Two boundries are defined, both on the left side and right side of the 
+    # # first peak. Normally should use the left side one, however, sometimes the 
+    # # image have artifacts near the boundary, cause another peak to form before 
+    # # the actual peak fo the signal, thus in this case the right side boundry 
+    # # are used.
  
-    img_border_mask_filled = find_boundry(dapi)
+    boundry_masks = find_boundry(dapi)
 
-    # eroding regions near the boundry.
-    img_border_mask_eroded = img_border_mask_filled.copy()
-    for i in range(50):
-        img_border_mask_eroded = morphology.binary_erosion(
-            img_border_mask_eroded, morphology.square(5))
-
-    img = img*img_border_mask_eroded[:,:,None]
+    img = img*boundry_masks[:,:,None]
     # save an copy for eroded image 
     _ = plt.figure(figsize=(16, 9))
     io.imshow(img)
@@ -272,7 +266,7 @@ if __name__ == "__main__":
     ]
     # pool and pruning cropped image masks.
     overall_masks, vessels = pool_masks_from_crops(
-        img, crop_mask_files, img_border_mask_eroded, padding=padding
+        img, crop_mask_files, boundry_masks, padding=padding
     )
     #! vessel masks is not pruned!!!
     good_masks = mask_pruning(overall_masks, vessel_size_l)
@@ -299,7 +293,7 @@ if __name__ == "__main__":
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
 
     # modify zone_crit with valid image border
-    zone_crit = zone_crit * img_border_mask_eroded
+    zone_crit = zone_crit * boundry_masks
     processe_img_mask = np.zeros(img.shape[:2],'bool')
     for crop in valid_crops:
         x0,x1,y0,y1 = crop
@@ -337,9 +331,11 @@ if __name__ == "__main__":
 
     # Calculate zonal spot sizes.
     if spot_size:
-        spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+        spot_sizes_df, skipped_boxes,valid_nuclei_masks = calculate_clonal_size(
+            img, zones)
         spot_segmentation_diagnosis(
-            img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+            img, spot_sizes_df, skipped_boxes,valid_nuclei_masks, 
+            fig_prefix=output_prefix
         )
         spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
         plot_spot_clonal_sizes(
