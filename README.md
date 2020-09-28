@@ -74,16 +74,7 @@ optional arguments:
 ## Gallery
 Example image
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example.JPG" height="300" width="400">
-
-Segmented image with CV(brown) and PV(white)
-
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Masks.pdf" height="300" width="400">
-
-Predicted lobules
-
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/lobules.pdf" height="300" width="400">
-
-Marker expression status by zones
-
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20signal%20intensity%20in%20zones.pdf" height="300" width="400">
+<object data="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example_report.pdf" type="application/pdf" width="700px" height="700px">
+    <embed src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example_report.pdf">
+    </embed>
+</object>
