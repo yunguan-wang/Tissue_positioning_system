@@ -78,12 +78,12 @@ Example image
 
 Segmented image with CV(brown) and PV(white)
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20segmented_classfied.png" height="360" width="480">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Masks.pdf" height="300" width="400">
 
 Predicted lobules
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/lobules.JPG" height="300" width="400">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/lobules.pdf" height="300" width="400">
 
 Marker expression status by zones
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20signal%20intensity%20in%20zones.png" height="360" width="480">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20signal%20intensity%20in%20zones.pdf" height="300" width="400">
