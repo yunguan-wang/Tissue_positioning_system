@@ -20,8 +20,8 @@ Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.
 
 ## Install
 ```
-git clone https://github.com/yunguan-wang/liver_zone_segmentation.git
-cd liver_zone_segmentation
+git clone https://github.com/yunguan-wang/Tissue_positioning_system.git
+cd Tissue_positioning_system
 pip install . --upgrade
 ```
 ## Test installation
