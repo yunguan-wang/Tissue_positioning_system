@@ -288,7 +288,8 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
     int_img = img[:, :, 0].copy()
     dapi = img[:, :, 2].copy()
     # dapi and marker threshold set by OTSU.
-    dapi_t = filters.threshold_otsu(dapi[dapi > 0])
+    # dapi_t = filters.threshold_otsu(dapi)
+    # print('DAPI threshold for cells detection: {}'.format(dapi_t))
     int_cutoff = filters.threshold_otsu(
         int_img[(int_img < 255) & (int_img > 0)])
     int_signal_mask = int_img > int_cutoff
@@ -313,6 +314,11 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
         avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
         if avg_zone_number == 0:
             continue
+        try:
+            dapi_t = filters.threshold_otsu(dapi[x0:x1, y0:y1])
+            print('DAPI threshold for cells detection: {}'.format(dapi_t))
+        except ValueError:
+            continue
         region_int_mask = int_signal_mask[x0:x1, y0:y1] & region.image
         region_dapi_mask = (dapi[x0:x1, y0:y1] > dapi_t) & region.image
         distance = ndi.distance_transform_edt(region_dapi_mask)
@@ -324,7 +330,7 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
             -distance, markers, mask=region_dapi_mask)
         n_cells = 0
         for nuclei_mask_region in measure.regionprops(labels):
-            if nuclei_mask_region.equivalent_diameter >= 7:
+            if nuclei_mask_region.equivalent_diameter >= 5:
                 n_cells += 1
                 nx0, ny0, nx1, ny1 = nuclei_mask_region.bbox
                 valid_nuclei_mask[x0+nx0:x0+nx1, y0+ny0:y0+ny1] = \

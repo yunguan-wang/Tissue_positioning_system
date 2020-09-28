@@ -122,6 +122,7 @@ def plot_zone_int_probs(
     dapi_mask_exp = morphology.dilation(dapi_int> dapi_cutoff, morphology.disk(5))
     dapi_mask = dapi_int > dapi_cutoff
     int_signal_mask = int_img > int_cutoff
+    total_pos = int_signal_mask.sum()
     # initialize the zone int dataframe
     n_zones = int((zone_crit[zone_crit<255]).max())
     print('number of zones : {}'.format(n_zones))
@@ -148,6 +149,7 @@ def plot_zone_int_probs(
         zone_int_stats.loc[idx, "percent of tomato area in zone"] = _percent_pos
         zone_int_stats.loc[idx, "percent of cellular tomato area in zone"] = _percent_cellular_tomato
         zone_int_stats.loc[idx, "percent of cellular tomato area in zone no exp"] = _percent_cellular_tomato_no_exp
+        zone_int_stats.loc[idx, "percent of positive in zone"] = 100 * _num_pos_px / total_pos
     sns.lineplot(data=zone_int_stats, y="percent of tomato area in zone", x="zone", sort=False)
     if prefix != "":
         plt.savefig(prefix + " signal intensity in zones.pdf", dpi=300)
