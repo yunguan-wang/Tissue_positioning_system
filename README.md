@@ -1,9 +1,9 @@
 <img src="https://github.com/zzhu33/scSplitter/blob/master/QBRC.jpg">
 
-# Tissue Pozitioning System (TPS) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
+# Tissue Positioning System (TPS) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
 
 ## Welcome
-* Tissue Pozitioning System algorithms is developed for learning zonated protein expression in hepatocytes, we welcome suggestions for other potential use cases.
+* Tissue Positioning System algorithms is developed for learning zonated protein expression in hepatocytes, we welcome suggestions for other potential use cases.
 * For current hepatocyte application, tps require an input IF image to have DAPI channel for nuclei and GS channel for central veins.
 ## Rationale / Motivation
 * Protein expression in tissue is often in zonated patterns between/around certain feature.
@@ -74,5 +74,5 @@ optional arguments:
 ## Gallery
 Example results
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example_results.png" height="540" width="720">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="540" width="720">
 
