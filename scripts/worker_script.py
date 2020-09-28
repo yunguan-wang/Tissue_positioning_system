@@ -123,6 +123,14 @@ if __name__ == "__main__":
         default=0,
         help="Dilation radius for dapi, useful in handle damage tissue image where cell death is prevalent.",
     )
+    parser.add_argument(
+        "-l",
+        "--logging",
+        nargs="?",
+        type=bool,
+        default=False,
+        help="Log file name, if empty, will print to command line. Otherwise, will make a log.txt file in the output.",
+    )
     # Parse all arguments
     args = parser.parse_args()
     input_tif_fn = args.input_img
@@ -137,6 +145,7 @@ if __name__ == "__main__":
     spot_size = args.spot_size
     tomato_cutoff = args.tomato_cutoff
     dapi_dilation_r = args.dapi_dilation_r
+    logging = args.logging
 
     output_prefix = input_tif_fn.replace(".tif", "/")
     if output != "":
@@ -146,10 +155,11 @@ if __name__ == "__main__":
     if not os.path.exists(output_prefix):
         os.mkdir(output_prefix)
     # make log file
-    log_fn = output_prefix + "log.txt"
-    log = open(log_fn, "a")
-    sys.stdout = log
-    sys.stderr = log
+    if logging:
+        log_fn = output_prefix + "log.txt"
+        log = open(log_fn, "a")
+        sys.stdout = log
+        sys.stderr = log
     print("Prosessing {}".format(input_tif_fn))
     print("Parameters: {}".format(args))
     # save an copy for reference
@@ -220,9 +230,12 @@ if __name__ == "__main__":
         # modify CV masks to shrink their borders
         gs_bool, _, _ = extract_gs_channel(img)
         gs_vessel = segmenting_vessels(
-            (gs_bool + 0) + (masks==0 + 0),
-            dark_t=1, vessel_size_t=1, dapi_dilation_r=0)
-        masks = shrink_cv_masks(cv_masks, pv_masks, gs_vessel|vessels)
+            (gs_bool + 0) + (masks == 0 + 0),
+            dark_t=1,
+            vessel_size_t=1,
+            dapi_dilation_r=0,
+        )
+        masks = shrink_cv_masks(cv_masks, pv_masks, gs_vessel | vessels)
 
         # Updates masks
         cv_masks = masks * np.isin(masks, cv_labels).copy()
@@ -230,7 +243,7 @@ if __name__ == "__main__":
         plot3channels(
             img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
         )
-        
+
         # # save the masks to be used in tpsDeep
         # classified_masks = np.zeros((3, img.shape[0], img.shape[1]), bool)
         # classified_masks[0, :,:] = cv_masks
@@ -300,4 +313,5 @@ if __name__ == "__main__":
                 figname=output_prefix + "spot_clonal_sizes.pdf",
             )
             spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
-    log.close()
+    if logging:
+        log.close()

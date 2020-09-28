@@ -1,9 +1,9 @@
 <img src="https://github.com/zzhu33/scSplitter/blob/master/QBRC.jpg">
 
-# Tissue Pozitioning System (TPS) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
+# Tissue Positioning System (TPS) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
 
 ## Welcome
-* Tissue Pozitioning System algorithms is developed for learning zonated protein expression in hepatocytes, we welcome suggestions for other potential use cases.
+* Tissue Positioning System algorithms is developed for learning zonated protein expression in hepatocytes, we welcome suggestions for other potential use cases.
 * For current hepatocyte application, tps require an input IF image to have DAPI channel for nuclei and GS channel for central veins.
 ## Rationale / Motivation
 * Protein expression in tissue is often in zonated patterns between/around certain feature.
@@ -22,18 +22,23 @@ Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.
 ```
 git clone https://github.com/yunguan-wang/liver_zone_segmentation.git
 cd liver_zone_segmentation
-pip install -e . --upgrade
+pip install . --upgrade
 ```
 ## Test installation
 ```
-python test.py
+python scripts/worker_script.py input/example.tif -o output/example
 ```
 ```
-Processing test example in "./input/example.tif"...
-Prosessing ./input/example.tif
+Prosessing input/example.tif
+Parameters: Namespace(dapi_cutoff=20, dapi_dilation_r=0, gs_higher_limit=0.75, gs_lower_limit=0.25, gs_step=0.1, input_img='input/example.tif', logging=False, maximal_neighbor_distance=20, output='', spot_size=False, tomato_cutoff=0, update=False, vessel_size_factor=2)
 Segmentating using GS and DAPI
 Merging neighboring masks...
 Continue merging neighboring masks...
+Continue merging neighboring masks...
+Number of CV and PV: 28, 30
+All opposite masks covered, stop expansion
+All opposite masks covered, stop expansion
+number of zones : 24
 ```
 Outputs for the test example is in "./output/example/".
 
@@ -72,18 +77,7 @@ optional arguments:
                         features. (default: 0.1)
 ```
 ## Gallery
-Example image
+Example results
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example.JPG" height="300" width="400">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="450" width="800">
 
-Segmented image with CV(brown) and PV(white)
-
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Masks.pdf" height="300" width="400">
-
-Predicted lobules
-
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/lobules.pdf" height="300" width="400">
-
-Marker expression status by zones
-
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/output/example/Marker%20signal%20intensity%20in%20zones.pdf" height="300" width="400">
