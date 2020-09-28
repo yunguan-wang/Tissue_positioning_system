@@ -72,9 +72,7 @@ optional arguments:
                         features. (default: 0.1)
 ```
 ## Gallery
-Example image
+Example results
 
-<object data="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example_report.pdf" type="application/pdf" width="700px" height="700px">
-    <embed src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example_report.pdf">
-    </embed>
-</object>
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/master/input/example_results.png" height="540" width="720">
+
