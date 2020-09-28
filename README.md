@@ -79,5 +79,5 @@ optional arguments:
 ## Gallery
 Example results
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="540" width="720">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="450" width="800">
 
