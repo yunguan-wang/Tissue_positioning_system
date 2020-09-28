@@ -1,0 +1,11 @@
+Prosessing input/example.tif
+Parameters: Namespace(dapi_cutoff=20, dapi_dilation_r=0, gs_higher_limit=0.75, gs_lower_limit=0.25, gs_step=0.1, input_img='input/example.tif', maximal_neighbor_distance=20, output='', spot_size=False, tomato_cutoff=0, update=False, vessel_size_factor=2)
+Segmentating using GS and DAPI
+Merging neighboring masks...
+Continue merging neighboring masks...
+Number of CV and PV: 28, 30
+/home2/s190548/.conda/envs/TPS/lib/python3.6/site-packages/skimage/morphology/_deprecated.py:5: skimage_deprecation: Function ``watershed`` is deprecated and will be removed in version 0.19. Use ``skimage.segmentation.watershed`` instead.
+  def watershed(image, markers=None, connectivity=1, offset=None, mask=None,
+All opposite masks covered, stop expansion
+All opposite masks covered, stop expansion
+number of zones : 24

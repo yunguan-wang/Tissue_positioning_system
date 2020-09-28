@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import scale, minmax_scale
 import scipy.ndimage as ndi
-from goz.segmentation import merge_neighboring_vessels
+from tps.segmentation import merge_neighboring_vessels
 
 
 def find_pv_cv_coords(masks, cv_labels, pv_labels):
