@@ -1,6 +1,7 @@
 import pandas as pd
 from skimage import io, color, measure
 from scipy import ndimage
+# from scipy.signal import find_peaks,peak_widths
 import numpy as np
 import os
 from goz.segmentation import *
@@ -183,7 +184,7 @@ if __name__ == "__main__":
     else:
         output_prefix = output
     if not os.path.exists(output_prefix):
-        os.mkdir(output_prefix)
+        os.makedirs(output_prefix)
     
     # make log file
     log_fn = output_prefix + "log"
@@ -193,6 +194,7 @@ if __name__ == "__main__":
     print("Prosessing {}".format(input_tif_fn))
     print("Parameters: {}".format(args))
     img = io.imread(input_tif_fn)
+    dapi = img[:,:,2]
 
     # save an copy for reference
     _ = plt.figure(figsize=(16, 9))
@@ -200,16 +202,31 @@ if __name__ == "__main__":
     plt.savefig(output_prefix + "original_figure.pdf")
     plt.close()
 
-    # getting tissue boundry limit on the zone crits
-    img_grey = (255 * color.rgb2gray(img)).astype("uint8")
-    # Erode image edges, which often have really bad GS
-    img_border_mask_filled = find_boundry(img_grey, 1)
-    img_border_mask_eroded = img_border_mask_filled.copy()
-    for i in range(50):
-        img_border_mask_eroded = morphology.binary_erosion(
-            img_border_mask_eroded, morphology.square(5))
+    # # find the threshold for boundary discovery based on peak finding on the 
+    # # histogram from channel intensity maxima.
 
-    img = img*img_border_mask_eroded[:,:,None]
+    # # Use max intensity of each channel as criteria
+    # # ignore 0 here
+    # img_hist,bins = np.histogram(
+    #     dapi.flatten(), bins=128, density=True, range=(1,255))
+    # peaks, peaks_params = find_peaks(
+    #     img_hist,height=.005, distance=5, width=2, rel_height=.9)
+    # # dignostic scripts outputing the the peaks.
+    # p_widths = peak_widths(img_hist,peaks,rel_height=.90)
+    # plt.plot(img_hist)
+    # plt.plot(peaks, img_hist[peaks], "x")
+    # plt.hlines(*p_widths[1:], color="C3")
+    # plt.savefig(output_prefix + 'DAPI intensity distribution peaks.pdf')
+
+    # # Two boundries are defined, both on the left side and right side of the 
+    # # first peak. Normally should use the left side one, however, sometimes the 
+    # # image have artifacts near the boundary, cause another peak to form before 
+    # # the actual peak fo the signal, thus in this case the right side boundry 
+    # # are used.
+ 
+    boundry_masks = find_boundry(dapi)
+
+    img = img*boundry_masks[:,:,None]
     # save an copy for eroded image 
     _ = plt.figure(figsize=(16, 9))
     io.imshow(img)
@@ -249,17 +266,17 @@ if __name__ == "__main__":
     ]
     # pool and pruning cropped image masks.
     overall_masks, vessels = pool_masks_from_crops(
-        img, crop_mask_files, img_border_mask_eroded, padding=padding
+        img, crop_mask_files, boundry_masks, padding=padding
     )
     #! vessel masks is not pruned!!!
     good_masks = mask_pruning(overall_masks, vessel_size_l)
     vessels = vessels * good_masks
-    good_masks = measure.label(good_masks)
     # CV, PV classification
     cv_features = extract_features(
         good_masks, raw_gs_ica, q1=gs_low, q2=gs_high, step=gs_step
     )
-    cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], good_masks)
+    cv_labels, pv_labels = pv_classifier(
+        cv_features.loc[:, "I0":], good_masks, max_cv_pv_ratio=1.5)
     # modify CV masks to shrink their borders
     cv_masks = good_masks * np.isin(good_masks, cv_labels).copy()
     pv_masks = good_masks * np.isin(good_masks, pv_labels).copy()
@@ -270,22 +287,13 @@ if __name__ == "__main__":
         img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
     )
 
-    # find lobules, currently ignored for large image
-    # cv_masks = cv_masks.astype('uint8')
-    # _, lobules_sizes, lobule_edges = find_lobules(
-    #     cv_masks, lobule_name=output_prefix)
-    # lobules_sizes.to_csv(output_prefix + "lobule_sizes.csv")
-    # plot3channels(
-    #     lobule_edges, cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "lobules"
-    # )
-
     # Defining zones
     # Calculate distance projections
     #! orphan cut off set at 550
     zone_crit = calculate_zone_crit(cv_masks, pv_masks, tolerance=550)
 
     # modify zone_crit with valid image border
-    zone_crit = zone_crit * img_border_mask_eroded
+    zone_crit = zone_crit * boundry_masks
     processe_img_mask = np.zeros(img.shape[:2],'bool')
     for crop in valid_crops:
         x0,x1,y0,y1 = crop
@@ -323,9 +331,11 @@ if __name__ == "__main__":
 
     # Calculate zonal spot sizes.
     if spot_size:
-        spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+        spot_sizes_df, skipped_boxes,valid_nuclei_masks = calculate_clonal_size(
+            img, zones)
         spot_segmentation_diagnosis(
-            img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+            img, spot_sizes_df, skipped_boxes,valid_nuclei_masks, 
+            fig_prefix=output_prefix
         )
         spot_sizes_df.to_csv(output_prefix + "spot clonal sizes.csv")
         plot_spot_clonal_sizes(

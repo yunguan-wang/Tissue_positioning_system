@@ -161,7 +161,7 @@ if __name__ == "__main__":
     if os.path.exists(output_prefix + "zone int.csv") & (not update):
         print("Analysis already done, skip this job.")
     else:
-        if os.path.exists(output_mask_fn):
+        if os.path.exists(output_mask_fn) & (not update):
             print("Use existing masks")
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
@@ -215,17 +215,30 @@ if __name__ == "__main__":
             masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step
         )
         cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
-
+        cv_masks = masks * np.isin(masks, cv_labels).copy()
+        pv_masks = masks * np.isin(masks, pv_labels).copy()
         # modify CV masks to shrink their borders
+        gs_bool, _, _ = extract_gs_channel(img)
+        gs_vessel = segmenting_vessels(
+            (gs_bool + 0) + (masks==0 + 0),
+            dark_t=1, vessel_size_t=1, dapi_dilation_r=0)
+        masks = shrink_cv_masks(cv_masks, pv_masks, gs_vessel|vessels)
+
+        # Updates masks
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
-        masks = shrink_cv_masks(cv_masks, pv_masks, vessels)
-        cv_masks = masks * np.isin(masks, cv_labels).copy()
-        pv_masks = masks * np.isin(masks, pv_labels).copy()
-        plot_pv_cv(masks, cv_labels, img, output_prefix + "Marker ")
         plot3channels(
             img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
         )
+        
+        # save the masks to be used in GoZDeep
+        classified_masks = np.zeros((3, img.shape[0], img.shape[1]), bool)
+        classified_masks[0, :,:] = cv_masks
+        classified_masks[1, :,:] = pv_masks
+        classified_masks[2, :,:] = vessels!=0
+        mask_name = output_prefix + 'Classified_masks_' + output_prefix.split('/')[-2] + '.tif'
+        io.imsave(mask_name, classified_masks)
+
         # find lobules
         cv_masks = cv_masks.astype("uint8")
         _, lobules_sizes, lobule_edges = find_lobules(
@@ -268,12 +281,18 @@ if __name__ == "__main__":
             prefix=output_prefix + "Marker",
         )
         zone_int.to_csv(output_prefix + "zone int.csv")
-        
+
         # Calculate zonal spot clonal sizes.
         if spot_size:
-            spot_sizes_df, skipped_boxes = calculate_clonal_size(img, zones)
+            spot_sizes_df, skipped_boxes, valid_nuclei_mask = calculate_clonal_size(
+                img, zones, tomato_erosion=1
+            )
             spot_segmentation_diagnosis(
-                img, spot_sizes_df, skipped_boxes, fig_prefix=output_prefix
+                img,
+                spot_sizes_df,
+                skipped_boxes,
+                valid_nuclei_mask,
+                fig_prefix=output_prefix,
             )
             plot_spot_clonal_sizes(
                 spot_sizes_df,

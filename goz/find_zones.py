@@ -246,25 +246,6 @@ def find_lobules(cv_masks, outlier_t=0.1, lobule_name="lobule"):
     lobule_sizes["lobule_name"] = lobule_name
     return lobules, lobule_sizes, lobule_edges
 
-
-def get_zonal_spot_sizes(int_img, zones, output_prefix):
-    int_cutoff = filters.threshold_otsu(int_img)
-    int_signal_mask = int_img > int_cutoff
-    labeled_int_signal_mask = morphology.label(int_signal_mask)
-    zones[(zones < 0) | (zones == 255)] = 0
-    spot_sizes = []
-    zone_lables = []
-    for region in measure.regionprops(labeled_int_signal_mask):
-        region_mask = labeled_int_signal_mask == region.label
-        avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
-        spot_sizes.append(region.equivalent_diameter)
-        zone_lables.append(avg_zone_number)
-    spot_sizes = pd.DataFrame({"spot_size": spot_sizes, "zone": zone_lables})
-    spot_sizes = spot_sizes[spot_sizes.zone != 0]
-    spot_sizes = spot_sizes.sort_values("zone")
-    spot_sizes.to_csv(output_prefix + "spot_sizes.csv")
-    return spot_sizes
-
 def watershed_masks(unlabelled_mask,
     dapi_mask = None,
     min_distance=None,
@@ -307,10 +288,13 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
     int_img = img[:, :, 0].copy()
     dapi = img[:, :, 2].copy()
     # dapi and marker threshold set by OTSU.
-    dapi_t = filters.threshold_otsu(dapi[dapi > 0])
-    int_cutoff = filters.threshold_otsu(int_img[(int_img < 255) & (int_img > 0)])
+    # dapi_t = filters.threshold_otsu(dapi)
+    # print('DAPI threshold for cells detection: {}'.format(dapi_t))
+    int_cutoff = filters.threshold_otsu(
+        int_img[(int_img < 255) & (int_img > 0)])
     int_signal_mask = int_img > int_cutoff
-    int_signal_mask = morphology.erosion(int_signal_mask, morphology.disk(tomato_erosion))
+    int_signal_mask = morphology.erosion(
+        int_signal_mask, morphology.disk(tomato_erosion))
     labeled_int_signal_mask = morphology.label(int_signal_mask, connectivity=1)
     zones[(zones < 0) | (zones == 255)] = 0
     # initialize
@@ -319,6 +303,7 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
     zone_lables = []
     parent_bbox = []
     processed_bboxes = []
+    valid_nuclei_mask = np.zeros(zones.shape,'bool')
     # loop through each labeled spot.
     for region in measure.regionprops(labeled_int_signal_mask):
         region_mask = labeled_int_signal_mask == region.label
@@ -329,30 +314,33 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
         avg_zone_number = int(round(np.median(zones[region_mask]), ndigits=0))
         if avg_zone_number == 0:
             continue
+        try:
+            dapi_t = filters.threshold_otsu(dapi[x0:x1, y0:y1])
+            print('DAPI threshold for cells detection: {}'.format(dapi_t))
+        except ValueError:
+            continue
         region_int_mask = int_signal_mask[x0:x1, y0:y1] & region.image
         region_dapi_mask = (dapi[x0:x1, y0:y1] > dapi_t) & region.image
-        region_dapi_mask = merge_neighboring_vessels(
-            measure.label(region_dapi_mask), max_nuclei_dist
-        )[0]
-        for subregion in measure.regionprops(region_dapi_mask):
-            # watershed segmentation to get number of cells
-            distance = ndi.distance_transform_edt(subregion.image)
-            local_maxi = feature.peak_local_max(
-                distance, indices=False, footprint=morphology.disk(3)
-            )
-            markers = measure.label(local_maxi, connectivity=2)
-            labels = segmentation.watershed(
-                -distance, markers, mask=subregion.image)
-            n_cells = 0
-            for nuclei_mask_region in measure.regionprops(labels):
-                if nuclei_mask_region.equivalent_diameter >= 7.5:
-                    n_cells += 1
-            if n_cells != 0:
-                # saving data
-                clonal_sizes.append(n_cells)
-                spot_sizes.append(subregion.equivalent_diameter)
-                zone_lables.append(avg_zone_number)
-                parent_bbox.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
+        distance = ndi.distance_transform_edt(region_dapi_mask)
+        local_maxi = feature.peak_local_max(
+            distance, indices=False, min_distance=5
+        )
+        markers = measure.label(local_maxi, connectivity=2)
+        labels = segmentation.watershed(
+            -distance, markers, mask=region_dapi_mask)
+        n_cells = 0
+        for nuclei_mask_region in measure.regionprops(labels):
+            if nuclei_mask_region.equivalent_diameter >= 5:
+                n_cells += 1
+                nx0, ny0, nx1, ny1 = nuclei_mask_region.bbox
+                valid_nuclei_mask[x0+nx0:x0+nx1, y0+ny0:y0+ny1] = \
+                    nuclei_mask_region.filled_image
+        if n_cells != 0:
+            # saving data
+            clonal_sizes.append(n_cells)
+            spot_sizes.append(region.equivalent_diameter)
+            zone_lables.append(avg_zone_number)
+            parent_bbox.append(",".join([str(x) for x in [x0, y0, x1, y1]]))
     spot_sizes_df = pd.DataFrame(
         {
             "clonal_size": clonal_sizes,
@@ -364,4 +352,4 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
     skipped_bbox = [
         x for x in processed_bboxes if x not in spot_sizes_df.parent_bbox.values
     ]
-    return spot_sizes_df, skipped_bbox
+    return spot_sizes_df, skipped_bbox, valid_nuclei_mask
