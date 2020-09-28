@@ -410,7 +410,7 @@ def plot_spot_clonal_sizes(
         plot_data = plot_data.apply(lambda x: x/x.sum(),axis=1)
 
     plot_data.plot(kind='bar', stacked=True)
-    plt.xlabel('GoZ zones')
+    plt.xlabel('TPS Layers')
     plt.xticks(rotation=0)
     plt.ylabel(ylab)
     plt.legend(bbox_to_anchor=(1,0.5),loc='center left')

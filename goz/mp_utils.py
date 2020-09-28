@@ -2,8 +2,8 @@ from multiprocessing import Pool
 from skimage import io, exposure, filters
 import numpy as np
 import os
-from goz.segmentation import *
-from goz.plotting import plot3channels
+from tps.segmentation import *
+from tps.plotting import plot3channels
 
 
 def worker_segmentation(args):

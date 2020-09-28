@@ -3,9 +3,9 @@ from skimage import io, morphology, measure
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from goz.segmentation import *
-from goz.plotting import *
-from goz.find_zones import *
+from tps.segmentation import *
+from tps.plotting import *
+from tps.find_zones import *
 import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 

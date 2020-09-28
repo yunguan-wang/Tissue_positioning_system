@@ -1,10 +1,10 @@
 <img src="https://github.com/zzhu33/scSplitter/blob/master/QBRC.jpg">
 
-# Game of Zones (GoZ) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
+# Tissue Pozitioning System (TPS) - a quantitative, unsupervised algorithm for zonated expression pattern detection in Immunofluorescence images.
 
 ## Welcome
-* Game of Zones algorithms is developed for learning zonated protein expression in hepatocytes, we welcome suggestions for other potential use cases.
-* For current hepatocyte application, GoZ require an input IF image to have DAPI channel for nuclei and GS channel for central veins.
+* Tissue Pozitioning System algorithms is developed for learning zonated protein expression in hepatocytes, we welcome suggestions for other potential use cases.
+* For current hepatocyte application, tps require an input IF image to have DAPI channel for nuclei and GS channel for central veins.
 ## Rationale / Motivation
 * Protein expression in tissue is often in zonated patterns between/around certain feature.
 
@@ -14,7 +14,7 @@
 
 
 ## Requirement
-GoZ is developed and tested in Python3.6.
+tps is developed and tested in Python3.6.
 
 Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.org/), [pandas](https://pandas.pydata.org/), [matplotlib](https://matplotlib.org/). [seaborn](https://github.com/mwaskom/seaborn), [scikit-image](https://scikit-image.org/) and [scikit-learn](https://scikit-learn.org/).
 
@@ -38,10 +38,10 @@ Continue merging neighboring masks...
 Outputs for the test example is in "./output/example/".
 
 ## Usage
-GoZ can be executed easily with the command line worker script.
+tps can be executed easily with the command line worker script.
 
 ```
-Worker script for GoZ
+Worker script for tps
 
 positional arguments:
   input_img             Absolute Input TIF image to be zonated, with signal of
