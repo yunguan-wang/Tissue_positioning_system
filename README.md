@@ -14,11 +14,11 @@
 
 
 ## Requirement
-tps is developed and tested in Python3.6.
+TPS is developed and tested in Python3.6.
 
 Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.org/), [pandas](https://pandas.pydata.org/), [matplotlib](https://matplotlib.org/). [seaborn](https://github.com/mwaskom/seaborn), [scikit-image](https://scikit-image.org/) and [scikit-learn](https://scikit-learn.org/).
 
-## Install
+## Installation
 ```
 git clone https://github.com/yunguan-wang/Tissue_positioning_system.git
 cd Tissue_positioning_system
