@@ -12,9 +12,6 @@
 
 * Quantification of these zonated expression pattern very time consuming
 
-## More tools
-Researchers searching for more bioinformatics tools can visit our lab website: https://qbrc.swmed.edu/labs/wanglab/index.php.
-
 ## Requirement
 TPS is developed and tested in Python3.6.
 
@@ -85,3 +82,6 @@ Example results
 
 ## Contact
 If you have any questions or suggestions, please contact Yunguan Wang (yunguan.wang@utsouthwestern.edu) or Guanghua Xiao (guanghua.xiao@utsouthwestern.edu).
+
+## More tools
+Researchers searching for more bioinformatics tools can visit our lab website: https://qbrc.swmed.edu/labs/wanglab/index.php.
