@@ -12,6 +12,8 @@
 
 * Quantification of these zonated expression pattern very time consuming
 
+## More tools
+Researchers searching for more bioinformatics tools can visit our lab website: https://qbrc.swmed.edu/labs/wanglab/index.php.
 
 ## Requirement
 TPS is developed and tested in Python3.6.
