@@ -393,7 +393,7 @@ def shrink_cv_masks(
     return new_masks
 
 
-def find_boundry(dapi):
+def find_boundry(dapi, dapi_t = 50):
     # x10, y10 = [int(x/10) for x in dapi.shape]
     # img_10th = transform.resize(dapi,(x10,y10))
     # x100, y100 = [int(x/10) for x in img_10th.shape]
@@ -407,7 +407,7 @@ def find_boundry(dapi):
     # dapi_boundry = transform.resize(dapi_boundry, (x10,y10))
     # dapi_boundry = transform.resize(dapi_boundry, (dapi.shape))
     # dapi_boundry = dapi_boundry
-    boundry_masks = filters.gaussian(dapi>50, 4)*1.0
+    boundry_masks = filters.gaussian(dapi>dapi_t, 4)*1.0
     boundry_masks = filters.gaussian(boundry_masks>0, 4)*1.0
     boundry_masks = filters.gaussian(boundry_masks>0, 4)*1.0
     labeled_boundry_masks = measure.label(boundry_masks)
@@ -417,7 +417,7 @@ def find_boundry(dapi):
     boundry_masks = labeled_boundry_masks == mask_label
     boundry_masks = ndi.binary_fill_holes(boundry_masks)
     img_border_mask_eroded = boundry_masks.copy()
-    for i in range(50):
+    for i in range(dapi_t):
         img_border_mask_eroded = morphology.binary_erosion(
             img_border_mask_eroded, morphology.disk(2))
     return img_border_mask_eroded
