@@ -126,22 +126,22 @@ def calculate_pv_to_cv_dist_ratio(labeled_mask, pv_masks, cv_masks, nn=1):
 
 # --------
 
-
-def make_zone_masks(dist_ratio, n_zones, method="division"):
-    zone_mask = np.zeros(dist_ratio.shape)
-    if method == "histogram":
-        for zone in range(n_zones):
-            zone_mask[(dist_ratio > bins[zone]) & (dist_ratio < bins[zone + 1])] = int(
-                zone + 1
-            )
-    elif method == "division":
-        interval = np.percentile(dist_ratio, 99) / n_zones
-        for i in range(n_zones):
-            zone_mask[
-                (dist_ratio > i * interval) & (dist_ratio < (1 + i) * interval)
-            ] = int((i + 1))
-        zone_mask[dist_ratio >= np.percentile(dist_ratio, 99)] = int(i + 2)
-    return zone_mask
+# This function is not used
+# def make_zone_masks(dist_ratio, n_zones, method="division"):
+#     zone_mask = np.zeros(dist_ratio.shape)
+#     if method == "histogram":
+#         for zone in range(n_zones):
+#             zone_mask[(dist_ratio > bins[zone]) & (dist_ratio < bins[zone + 1])] = int(
+#                 zone + 1
+#             )
+#     elif method == "division":
+#         interval = np.percentile(dist_ratio, 99) / n_zones
+#         for i in range(n_zones):
+#             zone_mask[
+#                 (dist_ratio > i * interval) & (dist_ratio < (1 + i) * interval)
+#             ] = int((i + 1))
+#         zone_mask[dist_ratio >= np.percentile(dist_ratio, 99)] = int(i + 2)
+#     return zone_mask
 
 
 def find_orphans(masks, cv_labels, pv_labels, orphan_crit=400):
@@ -203,6 +203,15 @@ def create_zones(
                 zones[(zone_crit > t0) & (zone_crit <= t1)] = i + 1
     elif zone_break_type == "equal_quantile":
         quantiles = np.linspace(0, 1, num_zones + 1)
+        # adjusting first and last zone so that they are not too big
+        diff = quantiles[1]/2
+        quantiles[1] = quantiles[1] - diff
+        quantiles[-2] = quantiles[-2] + diff
+        j=1
+        for i in range(num_zones-3):
+            quantiles[i+2] = quantiles[i+2] - quantiles[1] + 2*diff/(num_zones-2)*j
+            j+=1
+        #
         zone_breaks = np.quantile(valid_zone_crit[valid_zone_crit>0], quantiles)
         for i, zone_break in enumerate(zone_breaks[:-1]):
             zones[

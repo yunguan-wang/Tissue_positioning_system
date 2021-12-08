@@ -13,7 +13,7 @@ from sklearn.cluster import AgglomerativeClustering
 #! threshold the channels, the channels need to be thresholded individually.
 
 
-def find_valid_crops(dapi, cols=3500, rows=1500, padding=250):
+def find_valid_crops(dapi, cols=3500, rows=1500, padding=250, valid_only=True):
     #! row are rows, and columsn are cols
     n_col_steps = int(np.ceil(dapi.shape[1] / cols))
     n_row_steps = int(np.ceil(dapi.shape[0] / rows))
@@ -27,7 +27,10 @@ def find_valid_crops(dapi, cols=3500, rows=1500, padding=250):
             box_b = np.min((rows * (row + 1) + padding, dapi.shape[0]))
             img_crop[: box_b - box_t, : box_r - box_l] = dapi[box_t:box_b, box_l:box_r]
             # print(col, row, np.median(img_crop))
-            if np.median(img_crop > 0):
+            if valid_only:
+                if np.median(img_crop > 0):
+                    valid_crops.append([box_t, box_b, box_l, box_r])
+            else:
                 valid_crops.append([box_t, box_b, box_l, box_r])
     return valid_crops
 
