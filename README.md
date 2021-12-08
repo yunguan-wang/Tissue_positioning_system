@@ -12,28 +12,32 @@
 
 * Quantification of these zonated expression pattern very time consuming
 
-
 ## Requirement
-tps is developed and tested in Python3.6.
+TPS is developed and tested in Python3.6.
 
 Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.org/), [pandas](https://pandas.pydata.org/), [matplotlib](https://matplotlib.org/). [seaborn](https://github.com/mwaskom/seaborn), [scikit-image](https://scikit-image.org/) and [scikit-learn](https://scikit-learn.org/).
 
-## Install
+## Installation
 ```
-git clone https://github.com/yunguan-wang/liver_zone_segmentation.git
-cd liver_zone_segmentation
-pip install -e . --upgrade
+git clone https://github.com/yunguan-wang/Tissue_positioning_system.git
+cd Tissue_positioning_system
+pip install . --upgrade
 ```
 ## Test installation
 ```
-python test.py
+python scripts/worker_script.py input/example.tif -o output/example
 ```
 ```
-Processing test example in "./input/example.tif"...
-Prosessing ./input/example.tif
+Prosessing input/example.tif
+Parameters: Namespace(dapi_cutoff=20, dapi_dilation_r=0, gs_higher_limit=0.75, gs_lower_limit=0.25, gs_step=0.1, input_img='input/example.tif', logging=False, maximal_neighbor_distance=20, output='', spot_size=False, tomato_cutoff=0, update=False, vessel_size_factor=2)
 Segmentating using GS and DAPI
 Merging neighboring masks...
 Continue merging neighboring masks...
+Continue merging neighboring masks...
+Number of CV and PV: 28, 30
+All opposite masks covered, stop expansion
+All opposite masks covered, stop expansion
+number of zones : 24
 ```
 Outputs for the test example is in "./output/example/".
 
@@ -74,5 +78,10 @@ optional arguments:
 ## Gallery
 Example results
 
-<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="540" width="720">
+<img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="450" width="800">
 
+## Contact
+If you have any questions or suggestions, please contact Yunguan Wang (yunguan.wang@utsouthwestern.edu) or Guanghua Xiao (guanghua.xiao@utsouthwestern.edu).
+
+## More tools
+Researchers searching for more bioinformatics tools can visit our lab website: https://qbrc.swmed.edu/labs/wanglab/index.php.
