@@ -12,16 +12,15 @@
 
 * Quantification of these zonated expression pattern very time consuming
 
-
 ## Requirement
-tps is developed and tested in Python3.6.
+TPS is developed and tested in Python3.6.
 
 Installation requires [numpy](http://www.numpy.org/), [scipy](https://www.scipy.org/), [pandas](https://pandas.pydata.org/), [matplotlib](https://matplotlib.org/). [seaborn](https://github.com/mwaskom/seaborn), [scikit-image](https://scikit-image.org/) and [scikit-learn](https://scikit-learn.org/).
 
-## Install
+## Installation
 ```
-git clone https://github.com/yunguan-wang/liver_zone_segmentation.git
-cd liver_zone_segmentation
+git clone https://github.com/yunguan-wang/Tissue_positioning_system.git
+cd Tissue_positioning_system
 pip install . --upgrade
 ```
 ## Test installation
@@ -81,3 +80,8 @@ Example results
 
 <img src="https://github.com/yunguan-wang/liver_zone_segmentation/blob/biohpc/output/example/example_results.png" height="450" width="800">
 
+## Contact
+If you have any questions or suggestions, please contact Yunguan Wang (yunguan.wang@utsouthwestern.edu) or Guanghua Xiao (guanghua.xiao@utsouthwestern.edu).
+
+## More tools
+Researchers searching for more bioinformatics tools can visit our lab website: https://qbrc.swmed.edu/labs/wanglab/index.php.
