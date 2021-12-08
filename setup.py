@@ -9,7 +9,6 @@ requires = [
     "scikit-learn",
     "seaborn",
     "matplotlib",
-    "czifile",
 ]
 
 DESCRIPTION = "Auto zoning algorithm from IF image based on vessels."
