@@ -11,18 +11,6 @@ import sys
 
 warnings.filterwarnings("ignore")
 
-
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ("yes", "true", "t", "False"):
-        return True
-    elif v.lower() in ("no", "false", "f", "True"):
-        return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value expected.")
-
-
 if __name__ == "__main__":
     matplotlib.use("Agg")
     parser = argparse.ArgumentParser(
@@ -63,7 +51,6 @@ if __name__ == "__main__":
         "-c",
         "--dapi_cutoff",
         type=int,
-        nargs="?",
         default=20,
         help="Dapi cutoff value for hard thresholding.",
     )
@@ -94,18 +81,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "-s",
         "--spot_size",
-        type=str2bool,
-        nargs="?",
         default=False,
+        action='store_true',
         help="If zonal spot sizes are calculated. This will only work for sparse signals.",
     )
     parser.add_argument(
         "-u",
         "--update",
-        type=bool,
-        nargs="?",
         default=False,
-        help="Check for existing analysis results, if exist, skip the job.",
+        action='store_true',
+        help="If true, will always overwrite existing results.",
     )
     parser.add_argument(
         "-tc",
@@ -126,9 +111,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-l",
         "--logging",
-        nargs="?",
-        type=bool,
         default=False,
+        action='store_true',
         help="Log file name, if empty, will print to command line. Otherwise, will make a log.txt file in the output.",
     )
     # Parse all arguments
@@ -157,7 +141,7 @@ if __name__ == "__main__":
     # make log file
     if logging:
         log_fn = output_prefix + "log.txt"
-        log = open(log_fn, "a")
+        log = open(log_fn, "w")
         sys.stdout = log
         sys.stderr = log
     print("Prosessing {}".format(input_tif_fn))
@@ -175,23 +159,23 @@ if __name__ == "__main__":
             print("Use existing masks")
             masks = io.imread(output_mask_fn)
             _, _, gs_ica = extract_gs_channel(img)
-            vessels = segmenting_vessels(
-                img,
-                dark_t=dapi_cutoff,
-                dapi_channel=2,
-                vessel_size_t=vessel_size_factor,
-                dapi_dilation_r=dapi_dilation_r,
-            )
-            print("Merging neighboring vessel masks...")
-            vessels = measure.label(vessels, connectivity=2)
-            new_merged_mask, _ = merge_neighboring_vessels(vessels, max_dist=max_dist)
-            while not (new_merged_mask == vessels).all():
-                vessels = new_merged_mask
-                print("Continue merging neighboring masks...")
-                new_merged_mask, _ = merge_neighboring_vessels(
-                    vessels, max_dist=max_dist
-                )
-            vessels = new_merged_mask
+            # vessels = segmenting_vessels(
+            #     img,
+            #     dark_t=dapi_cutoff,
+            #     dapi_channel=2,
+            #     vessel_size_t=vessel_size_factor,
+            #     dapi_dilation_r=dapi_dilation_r,
+            # )
+            # print("Merging neighboring vessel masks...")
+            # vessels = measure.label(vessels, connectivity=2)
+            # new_merged_mask, _ = merge_neighboring_vessels(vessels, max_dist=max_dist)
+            # while not (new_merged_mask == vessels).all():
+            #     vessels = new_merged_mask
+            #     print("Continue merging neighboring masks...")
+            #     new_merged_mask, _ = merge_neighboring_vessels(
+            #         vessels, max_dist=max_dist
+            #     )
+            # vessels = new_merged_mask
         else:
             print("Segmentating using GS and DAPI")
             try:
@@ -216,14 +200,16 @@ if __name__ == "__main__":
                 )
             # Save masks
             io.imsave(output_mask_fn, masks.astype(np.uint8))
-        # save gs_ica
-        io.imshow(gs_ica)
-        plt.savefig(output_prefix + "GS_ica.pdf")
-        plt.close()
+            # save gs_ica
+            io.imshow(gs_ica)
+            plt.savefig(output_prefix + "GS_ica.pdf")
+            plt.close()
+
         # get CV PV classification
         cv_features = extract_features(
             masks, gs_ica, q1=gs_low, q2=gs_high, step=gs_step
         )
+        print(cv_features.head(3))
         cv_labels, pv_labels = pv_classifier(cv_features.loc[:, "I0":], masks)
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
@@ -240,10 +226,12 @@ if __name__ == "__main__":
         # Updates masks
         cv_masks = masks * np.isin(masks, cv_labels).copy()
         pv_masks = masks * np.isin(masks, pv_labels).copy()
-        plot3channels(
-            img[:, :, 2], cv_masks != 0, pv_masks != 0, fig_name=output_prefix + "Masks"
+        cv_pv_masks = plot3channels(
+            img[:, :, 2], cv_masks != 0, pv_masks != 0,
+            fig_name = output_prefix + "Masks",
+            return_array = True
         )
-
+        io.imsave(output_prefix + 'cv_pv_masks.tif', cv_pv_masks.astype(np.uint8))
         # # save the masks to be used in tpsDeep
         # classified_masks = np.zeros((3, img.shape[0], img.shape[1]), bool)
         # classified_masks[0, :,:] = cv_masks
