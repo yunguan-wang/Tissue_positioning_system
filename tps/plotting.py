@@ -294,12 +294,12 @@ def get_pooled_zonal_data(folders, markers, filename="zone int.csv"):
     abs_path = os.getcwd()
     for folder in folders:
         for marker in markers:
-            tif_files = sorted(
+            res_fds = sorted(
                 [x for x in os.listdir(folder) 
-                if (".tif" in x) & (marker.lower() in x.lower())])
+                if (os.path.isdir(os.path.join(folder, x))) & (marker.lower() in x.lower())])
             i = 0
-            for img_fn in tif_files:
-                output_prefix = img_fn.replace(".tif", "")
+            for res_fd in res_fds:
+                output_prefix = res_fd
                 _zonal_data_fn = os.path.join(abs_path, folder, output_prefix, filename)
                 if not os.path.exists(_zonal_data_fn):
                     # Attempt to fix file name inconsistency caused by

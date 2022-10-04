@@ -65,18 +65,18 @@ def extract_features(labeled_mask, raw_gs_ica, q1=0.25, q2=0.75, step=0.05):
         pixel_ints = raw_gs_ica[region.coords[:, 0], region.coords[:, 1]]
         for j, p in enumerate(np.arange(q1, q2, step)):
             mask_features.loc[label, "I" + str(j)] = np.quantile(pixel_ints, p)
-        mask_features.loc[label,'median_gs'] = np.median(pixel_ints)
+        # mask_features.loc[label,'median_gs'] = np.median(pixel_ints)
     return mask_features
 
 
-def pv_classifier(cv_features, labeled_mask, max_cv_pv_ratio = 2):
+def pv_classifier(cv_features, labeled_mask, max_cv_pv_ratio = 1):
     model_data = cv_features.copy()
     km = KMeans(2)
-    pca = PCA(2, whiten=True,random_state=0)
+    pca = PCA(0.8, whiten=True,random_state=0)
     adjust_pv = None
     cv_feature_pca = pca.fit_transform(model_data)
     labels = km.fit_predict(cv_feature_pca)
-    class_median_int = model_data.groupby(labels).median_gs.median().sort_values()
+    class_median_int = model_data.groupby(labels).I0.median().sort_values()
     high_int_label = class_median_int.index[1]
     cv_labels = model_data.index[labels == high_int_label]
     pv_labels = model_data.index[labels != high_int_label]
