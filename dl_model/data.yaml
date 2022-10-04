@@ -1,0 +1,7 @@
+root: ./data/
+train: ./data/train.csv
+val: ./data/val.csv
+test: ./data/test.csv
+labels: ['cv', 'pv']
+rescale_factor: 0.5
+dapi_only: true
