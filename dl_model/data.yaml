@@ -3,5 +3,5 @@ train: ./data/train.csv
 val: ./data/val.csv
 test: ./data/test.csv
 labels: ['cv', 'pv']
-rescale_factor: 0.5
+rescale_factor: 1.0
 dapi_only: true
