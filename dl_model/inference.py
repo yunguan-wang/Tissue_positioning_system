@@ -88,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--input', required=True, type=str, help="Input image file.")
     parser.add_argument('--model', default='./pretrained/tps_model.pt', type=str, help="Model file or weights path." )
     parser.add_argument('--output', default=None, type=str, help="Output file name. default use `input_mask.ext`.")
-    parser.add_argument('--rescale_factor', default=0.5, type=float, help="Rescale factor for inference.")
+    parser.add_argument('--rescale_factor', default=1.0, type=float, help="Rescale factor for inference.")
     parser.add_argument('--device', default='cuda', type=str, choices=['cpu', 'cuda'], help='Run inference on GPU or CPU.')
     parser.add_argument('--export', action='store_true', help='Whether to export torch script model.')
 
