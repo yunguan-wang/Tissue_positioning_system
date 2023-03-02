@@ -54,7 +54,7 @@ python -u dl_model/train.py --data data.yaml --exp_dir exp -num_epochs 100
 ```
 Run ```python train.py -h``` for more options.
 
-### 2. TPS analysis with out the deep-learning model
+### 4. TPS analysis with out the deep-learning model
 tps can be also be used with out the deep-learning model with the `tps_mophological_script.py` script.
 
 ```
