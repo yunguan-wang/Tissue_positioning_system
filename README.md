@@ -27,44 +27,37 @@ conda activate myenv
 ```
 ### 2. Test installation
 ```
-python scripts/worker_script.py input/example.tif -o output/example
+python scripts/tps_worker.py dl_model/data/2w_Control_Cyp1a2-0301-f345-L1.tif
 ```
-```
-Prosessing input/example.tif
-Parameters: Namespace(dapi_cutoff=20, dapi_dilation_r=0, gs_higher_limit=0.75, gs_lower_limit=0.25, gs_step=0.1, input_img='input/example.tif', logging=False, maximal_neighbor_distance=20, output='', spot_size=False, tomato_cutoff=0, update=False, vessel_size_factor=2)
-Segmentating using GS and DAPI
-Merging neighboring masks...
-Continue merging neighboring masks...
-Continue merging neighboring masks...
-Number of CV and PV: 28, 30
-All opposite masks covered, stop expansion
-All opposite masks covered, stop expansion
-number of zones : 24
-```
-Outputs for the test example is in "./output/example/".
+Outputs for the test example will be placed in `dl_model/data/2w_Control_Cyp1a2-0301-f345-L1`.
 
-## Usage
-### 1. Segment CV and PV with pretrained model
+### 3. Using TPS with the deep-learning model 
+#### 1. Hepatocyte zone analysis with the pretrained model
 We provide a pretrained deep learning model ```./pretrained/tps_model.pt``` to segment cv and pv for given slides. 
 
-#### a) Quick start with an example image
+#### a) Quick start 
 ```
-python -u test.py --input ./data/2w_Control_Gls2-0302-f345-L1.tif --rescale_factor 1.0
+python scripts/tps_worker.py --input [path/to/image]
 ```
-Run ```python test.py -h``` for more options.
 
-#### b) Inference a folder of images on gpu and export torch jit model
+#### b) Segmenting CV and PV in a folder of images on gpu and export torch jit model
 ```
-python -u inference.py --input ./data --rescale_factor 1.0 --device cuda --export
+python -u dl_model/inference.py --input ./data --rescale_factor 1.0 --device cuda --export
 ```
 Run ```python inference.py -h``` for more options.
 
-### 2. TPS analysis
-tps can be executed easily with the command line worker script.
+
+#### 2. Train a model based on customized dataset.
+Specify data path, image scale and hyperparameters in ```data.yaml```. 
+```
+python -u dl_model/train.py --data data.yaml --exp_dir exp -num_epochs 100
+```
+Run ```python train.py -h``` for more options.
+
+### 2. TPS analysis with out the deep-learning model
+tps can be also be used with out the deep-learning model with the `tps_mophological_script.py` script.
 
 ```
-Worker script for tps
-
 positional arguments:
   input_img             Absolute Input TIF image to be zonated, with signal of
                         interest at channel 0, GS at channel 1 and DAPI at
@@ -93,12 +86,6 @@ optional arguments:
                         The interval of percentage in the GS intensity
                         features. (default: 0.1)
 ```
-### 3. Train a model based on customized dataset.
-Specify data path, image scale and hyperparameters in ```data.yaml```. 
-```
-python -u train.py --data data.yaml --exp_dir exp -num_epochs 100
-```
-Run ```python train.py -h``` for more options.
 
 <!---
 ## Gallery
