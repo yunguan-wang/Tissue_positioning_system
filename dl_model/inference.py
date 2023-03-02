@@ -84,7 +84,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('GoZDeep inference.', add_help=False)
+    parser = argparse.ArgumentParser('TPS inference.', add_help=False)
     parser.add_argument('--input', required=True, type=str, help="Input image file.")
     parser.add_argument('--model', default='./pretrained/tps_model.pt', type=str, help="Model file or weights path." )
     parser.add_argument('--output', default=None, type=str, help="Output file name. default use `input_mask.ext`.")
