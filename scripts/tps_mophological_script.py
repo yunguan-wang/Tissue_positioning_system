@@ -19,12 +19,12 @@ if __name__ == "__main__":
     matplotlib.use("Agg")
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Worker script for Autozone",
+        description="Worker script for TPS using only morphlogical image operations.",
     )
     parser.add_argument(
         "input_img",
         type=str,
-        help="Absolute Input TIF image to be zonated, with signal of interest at channel 0, \
+        help="Input TIF image to be zonated, with signal of interest at channel 0, \
                             GS at channel 1 and DAPI at channel 2",
     )
     parser.add_argument(

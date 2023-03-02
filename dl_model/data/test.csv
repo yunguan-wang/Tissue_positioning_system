@@ -1,4 +1,4 @@
 image_path,mask_path
-2w_Control_Gls2-0244-F456-L1.tif,2w_Control_Gls2-0244-F456-L1_mask.tif
-2w_Control_Gls2-0302-f345-L1.tif,2w_Control_Gls2-0302-f345-L1_mask.tif
-2w_Control_Gls2-0303-f123-L1.tif,2w_Control_Gls2-0303-f123-L1_mask.tif
+2w_Control_Cyp1a2-0301-f345-L1.tif,2w_Control_Gls2-0244-F456-L1_mask.tif
+2w_Control_Gls2-0244-F456-L1.tif,2w_Control_Cyp1a2-0301-f345-L1_mask.tif
+2w_Control_GS-0579-F-L1.tif,2w_Control_GS-0579-F-L1_mask.tif
