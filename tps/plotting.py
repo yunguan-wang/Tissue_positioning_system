@@ -43,18 +43,18 @@ def plot_pv_cv(labeled_mask, gs_labels, img, prefix=""):
         plt.close()
 
 
-def plot_zone_with_img(img, zones, fig_prefix=None, tomato_channel=0, **kwargs):
+def plot_zone_with_img(img, zones, fig_prefix=None, marker_channel=0, **kwargs):
     plot_zones = zones.copy()
-    tomato = img[:, :, tomato_channel]
-    tomato = tomato / 4
-    tomato[0, 0] = 255
+    marker = img[:, :, marker_channel]
+    marker = marker / 4
+    marker[0, 0] = 255
     vessel = np.zeros(zones.shape, "uint8")
     vessel[plot_zones == -1] = 2
     vessel[plot_zones == 255] = 0.5
     plot_zones[np.isin(plot_zones, [-1, 0, 255])] = 0
     plot_zones = 1 + plot_zones.max() - plot_zones
     plot_zones[plot_zones == plot_zones.max()] = 0
-    return plot3channels(tomato, vessel, plot_zones, fig_prefix, **kwargs)
+    return plot3channels(marker, vessel, plot_zones, fig_prefix, **kwargs)
 
 
 def plot_zones_only(zones, fig_prefix=None):
@@ -107,16 +107,16 @@ def plot_zone_int_probs(
     savefig=False,
     plot_type="prob",
     marker_name="GLS2",
-    tomato_cutoff = 0,
+    marker_cutoff = 0,
     prefix=""):
     int_cutoff = filters.threshold_otsu(int_img)
-    # quick hack for images where the tomato is too sparse
+    # quick hack for images where the marker is too sparse
     if int_cutoff < 100:
-        print("Tomato intensity threshold too low, override to 100!")
+        print("marker intensity threshold too low, override to 100!")
         int_cutoff = 100
-    # forced tomato cutoff value
-    if tomato_cutoff != 0:
-        int_cutoff = int(tomato_cutoff)
+    # forced marker cutoff value
+    if marker_cutoff != 0:
+        int_cutoff = int(marker_cutoff)
     if dapi_cutoff == "otsu":
         dapi_cutoff = filters.threshold_otsu(dapi_int)
     dapi_mask_exp = morphology.dilation(dapi_int> dapi_cutoff, morphology.disk(5))
@@ -133,24 +133,24 @@ def plot_zone_int_probs(
         zone = int(row.zone[1:])
         # pixels in zones
         _zone_px_mask = zone_crit == zone
-        # Tomato area in zone
+        # marker area in zone
         _num_total_px = _zone_px_mask.sum()
         _num_pos_px = int_signal_mask[_zone_px_mask].sum()
         _percent_pos = 100 * _num_pos_px / _num_total_px
-        # Tomato area as a function of total cellular area with expanded dapi mask
+        # marker area as a function of total cellular area with expanded dapi mask
         _zonal_cell_area = (_zone_px_mask * dapi_mask_exp).sum()
         _zonal_marker_area = int_signal_mask[_zone_px_mask * dapi_mask_exp].sum()
-        _percent_cellular_tomato = 100 * _zonal_marker_area / _zonal_cell_area
-        # Tomato area as a function of total cellular area
+        _percent_cellular_marker = 100 * _zonal_marker_area / _zonal_cell_area
+        # marker area as a function of total cellular area
         _zonal_cell_area = (_zone_px_mask * dapi_mask).sum()
         _zonal_marker_area = int_signal_mask[_zone_px_mask * dapi_mask].sum()
-        _percent_cellular_tomato_no_exp = 100 * _zonal_marker_area / _zonal_cell_area
+        _percent_cellular_marker_no_exp = 100 * _zonal_marker_area / _zonal_cell_area
         # record data
-        zone_int_stats.loc[idx, "percent of tomato area in zone"] = _percent_pos
-        zone_int_stats.loc[idx, "percent of cellular tomato area in zone"] = _percent_cellular_tomato
-        zone_int_stats.loc[idx, "percent of cellular tomato area in zone no exp"] = _percent_cellular_tomato_no_exp
+        zone_int_stats.loc[idx, "percent of marker area in zone"] = _percent_pos
+        # zone_int_stats.loc[idx, "percent of cellular marker area in zone"] = _percent_cellular_marker
+        zone_int_stats.loc[idx, "percent of cellular marker area in zone"] = _percent_cellular_marker_no_exp
         zone_int_stats.loc[idx, "percent of positive in zone"] = 100 * _num_pos_px / total_pos
-    sns.lineplot(data=zone_int_stats, y="percent of tomato area in zone", x="zone", sort=False)
+    sns.lineplot(data=zone_int_stats, y="percent of marker area in zone", x="zone", sort=False)
     if prefix != "":
         plt.savefig(prefix + " signal intensity in zones.pdf", dpi=300)
         plt.close()
@@ -159,7 +159,7 @@ def plot_zone_int_probs(
 
 def plot_pooled_zonal_data(
     plot_data,
-    y_col="percent of tomato area in zone",
+    y_col="percent of marker area in zone",
     hue_col="Condition",
     hue_order=None,
     plot_diff_bar=True,

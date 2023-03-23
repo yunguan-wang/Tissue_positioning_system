@@ -52,7 +52,7 @@ def pool_masks(l_cv_masks, l_pv_masks):
     return output_masks, cv_labels, pv_labels, cv_masks, pv_masks
 
 def worker_process(param_list):
-    tif_fn, spot_size, tomato_cutoff, output_prefix, mask_fn = param_list
+    tif_fn, spot_size, marker_cutoff, output_prefix, mask_fn = param_list
     if not os.path.exists(output_prefix):
         os.makedirs(output_prefix)
     img = io.imread(tif_fn)
@@ -114,15 +114,15 @@ def worker_process(param_list):
     plot_zones_only(zones, fig_prefix=output_prefix + "zones only")
 
     # Calculate zonal reporter expression levels.
-    if not tomato_cutoff:
-        tomato_cutoff = filters.threshold_otsu(img[:,:,0])
+    if not marker_cutoff:
+        marker_cutoff = filters.threshold_otsu(img[:,:,0])
     zone_int = plot_zone_int_probs(
         img[:, :, 0],
         img[:, :, 2],
         zones,
         dapi_cutoff="otsu",
         plot_type="probs",
-        tomato_cutoff=tomato_cutoff,
+        marker_cutoff=marker_cutoff,
         prefix=output_prefix + "Marker",
     )
     zone_int.to_csv(output_prefix + "zone int.csv")
@@ -130,7 +130,7 @@ def worker_process(param_list):
     # Calculate zonal spot clonal sizes.
     if spot_size:
         spot_sizes_df, skipped_boxes, valid_nuclei_mask = calculate_clonal_size(
-            img, zones, tomato_erosion=1
+            img, zones, marker_erosion=1
         )
         spot_segmentation_diagnosis(
             img,
@@ -191,10 +191,10 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "-tc",
-        "--tomato_cutoff",
+        "--marker_cutoff",
         default=False,
         type=float,
-        help="Forced tomato cutoff, used in place of OTSU thresholding.",
+        help="Forced marker cutoff, used in place of OTSU thresholding.",
     )
 
     # Parse all arguments
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     input_tif_fn = args.input_img
     output = args.output
     spot_size = args.spot_size
-    tomato_cutoff = args.tomato_cutoff
+    marker_cutoff = args.marker_cutoff
     
     # Config paths
     tps_path = os.path.abspath(__file__)
@@ -239,7 +239,7 @@ if __name__ == '__main__':
             infererence_path, input_tif_fn,model_path, mask_fn)
     )
     print('TPS zonal analysis...')
-    worker_process([input_tif_fn, spot_size, tomato_cutoff, output, mask_fn])
+    worker_process([input_tif_fn, spot_size, marker_cutoff, output, mask_fn])
     
     '''
     # Scripts used to process data included in paper.
@@ -260,13 +260,13 @@ if __name__ == '__main__':
         tif_fn = os.path.join(input_folder, tif)
         if not os.path.exists(tif_fn):
             continue
-        spot_size,tomato_cutoff = design.loc[tif,['spot','tomato_cutoff']]
+        spot_size,marker_cutoff = design.loc[tif,['spot','marker_cutoff']]
         tif_fn = os.path.join(input_folder, tif)
         mask_fn = tif_fn.replace('.tif','_mask.tif')
         spot_size = design.loc[tif,'spot']
         output_prefix = os.path.join(
             output_folder, design.loc[tif,'folder'], tif[:-4])
-        params.append([tif_fn, spot_size, tomato_cutoff, output_prefix, mask_fn])
+        params.append([tif_fn, spot_size, marker_cutoff, output_prefix, mask_fn])
     P = Pool(16)
     P.map(worker_process, params)
     '''

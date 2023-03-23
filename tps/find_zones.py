@@ -289,7 +289,7 @@ def watershed_masks(unlabelled_mask,
     labels = segmentation.watershed(-distance, markers, mask=unlabelled_mask)
     return labels
 
-def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
+def calculate_clonal_size(img, zones, marker_erosion=5, max_nuclei_dist=10):
     """
     Calculate the clonal size of each marker spots in zone. Will try to get rid of marker spots with
     no nuclei or connected-but-not-from-the-same-clone.
@@ -303,7 +303,7 @@ def calculate_clonal_size(img, zones, tomato_erosion=5, max_nuclei_dist=10):
         int_img[(int_img < 255) & (int_img > 0)])
     int_signal_mask = int_img > int_cutoff
     int_signal_mask = morphology.erosion(
-        int_signal_mask, morphology.disk(tomato_erosion))
+        int_signal_mask, morphology.disk(marker_erosion))
     labeled_int_signal_mask = morphology.label(int_signal_mask, connectivity=1)
     zones[(zones < 0) | (zones == 255)] = 0
     # initialize

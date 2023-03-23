@@ -100,11 +100,11 @@ for marker, fn in zip(['GS','CYP1A2','GSL2'],files):
 g = sns.FacetGrid(
     plot_data,col='Marker',sharey=True, aspect=1.3,
     )
-g = g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp')
+g = g.map(sns.lineplot, 'zone','percent of cellular marker area in zone no exp')
 g.set_titles(col_template='')
 g.set_xticklabels([])
 g.set_xlabels('TPS Layers')
-g.set_ylabels('% Tomato area in layer')
+g.set_ylabels('% marker area in layer')
 plt.legend(bbox_to_anchor = (1.2,0.5), loc='center left')
 plt.savefig(output_folder + '/Figure 2e.pdf', bbox_inches='tight')
 
@@ -124,7 +124,7 @@ plot_data_t0.Condition = plot_data_t0.Condition.apply(lambda x: x.split(' ')[-1]
 plot_data_t0 = plot_data_t0.sort_values('Condition')
 plot_data_t0 = plot_data_t0.rename({'Condition':'Marker'}, axis=1)
 zone_order = sorted(plot_data_t0.zone.unique())
-plot_data_t0 = plot_data_t0[~plot_data_t0.zone.isin(['01','24'])]
+# plot_data_t0 = plot_data_t0[~plot_data_t0.zone.isin(['01','24'])]
 plot_data_t0.Marker = plot_data_t0.Marker.str.replace('2W_CONTROL_','')
 pan = ['Apoc4','Pklr']
 zone1 = ['Arg1.1', 'Arg1.2','Gls2']
@@ -143,15 +143,17 @@ for marker_list, list_name in zip(
     _plot_data = plot_data_t0[plot_data_t0.Marker.isin(marker_list)]
     _plot_data = _plot_data.sort_values('zone')
     # g = sns.FacetGrid(_plot_data,col='Condition',col_wrap=4, sharey=False)
-    # g = g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp')
+    # g = g.map(sns.lineplot, 'zone','percent of cellular marker area in zone no exp')
     g = sns.lineplot(
-        x='zone', y='percent of cellular tomato area in zone no exp', hue='Marker',
-        data = _plot_data, ax=axes[i])
-    g.axes.set_xlabel('TPS Layers', fontsize = 'large')
+        x='zone', y='percent of cellular marker area in zone no exp', hue='Marker',
+        data = _plot_data, ax=axes[i], style = 'Marker', lw=5)
+    g.axes.set_xlabel('', fontsize = 'large')
     g.axes.set_ylabel('')
     g.axes.set_xticklabels([])
-    g.axes.set_title(list_name, fontsize = 'large')
-    g.axes.legend(bbox_to_anchor = (1,.5), loc='center left', fontsize=20)
+    g.axes.set_title(' ', fontsize = 'large')
+    legend = g.axes.legend(bbox_to_anchor = (1,.5), loc='center left', fontsize=20)
+    for line in legend.get_lines():
+        line.set_linewidth(5)
     i+=1
 fig.delaxes(axes[i])
 plt.tight_layout()
@@ -173,7 +175,7 @@ plot_data_t6m.Condition = plot_data_t6m.Condition.apply(lambda x: x.split(' ')[-
 plot_data_t6m = plot_data_t6m.sort_values('Condition')
 plot_data_t6m = plot_data_t6m.rename({'Condition':'Marker'}, axis=1)
 zone_order = sorted(plot_data_t6m.zone.unique())
-plot_data_t6m = plot_data_t6m[~plot_data_t6m.zone.isin(['01','24'])]
+# plot_data_t6m = plot_data_t6m[~plot_data_t6m.zone.isin(['01','24'])]
 plot_data_t6m.Marker = plot_data_t6m.Marker.str.replace('6_MONTHS_','')
 fig, axes = plt.subplots(2,3, figsize=(30,15))
 sns.set_theme('paper', font_scale = 3, font='Arial', style='white')
@@ -186,9 +188,9 @@ for marker_list, list_name in zip(
     _plot_data = plot_data_t6m[plot_data_t6m.Marker.isin(marker_list)]
     _plot_data = _plot_data.sort_values('zone')
     # g = sns.FacetGrid(_plot_data,col='Condition',col_wrap=4, sharey=False)
-    # g = g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp')
+    # g = g.map(sns.lineplot, 'zone','percent of cellular marker area in zone no exp')
     g = sns.lineplot(
-        x='zone', y='percent of cellular tomato area in zone no exp', hue='Marker',
+        x='zone', y='percent of cellular marker area in zone no exp', hue='Marker',
         data = _plot_data, ax=axes[i])
     g.axes.set_xlabel('TPS Layers', fontsize = 'large')
     g.axes.set_ylabel('')
@@ -217,7 +219,7 @@ g = sns.FacetGrid(
     legend_out = False, height=5,
     col_order = plot_markers,
     )
-g = g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp')
+g = g.map(sns.lineplot, 'zone','percent of cellular marker area in zone no exp')
 g.set_titles(col_template='{col_name}',fontsize = 'large')
 g.set_xticklabels([])
 g.set_xlabels('')
@@ -268,11 +270,11 @@ res.to_csv('Marker Zmax IZ50 summary.csv')
 # marker = 'HAMP2'
 # hamp2 = plot_data[plot_data.Marker==marker].sort_values('zone')
 # means = hamp2.groupby(['zone','T']).mean()[
-#     'percent of cellular tomato area in zone no exp'].reset_index()
+#     'percent of cellular marker area in zone no exp'].reset_index()
 # std = hamp2.groupby(['zone','T']).std()[
-#     'percent of cellular tomato area in zone no exp'].reset_index()
+#     'percent of cellular marker area in zone no exp'].reset_index()
 # count = hamp2.groupby(['zone','T'])[
-#     'percent of cellular tomato area in zone no exp'].count().reset_index()
+#     'percent of cellular marker area in zone no exp'].count().reset_index()
 # pararms = []
 # for x in means['T'].unique():
 #     for df in [means, std, count]:
@@ -283,16 +285,16 @@ res.to_csv('Marker Zmax IZ50 summary.csv')
 # diff = means.iloc[::2,1] - means.iloc[::-2,1][::-1]
 # diff.plot(kind = 'bar')
 # plt.xlabel('TPS Layers')
-# plt.ylabel('Difference between % of Tomato area in zones')
+# plt.ylabel('Difference between % of marker area in zones')
 # plt.xticks([1,8,16,24],['1', '8', '16', '24'])
 # plt.savefig('Figure 5b')
 
 # means = hamp2.groupby('T').mean()[
-#     'percent of cellular tomato area in zone no exp'].reset_index()
+#     'percent of cellular marker area in zone no exp'].reset_index()
 # std = hamp2.groupby('T').std()[
-#     'percent of cellular tomato area in zone no exp'].reset_index()
+#     'percent of cellular marker area in zone no exp'].reset_index()
 # count = hamp2.groupby('T')[
-#     'percent of cellular tomato area in zone no exp'].count().reset_index()
+#     'percent of cellular marker area in zone no exp'].count().reset_index()
 # pararms = []
 # for x in means['T'].unique():
 #     for df in [means, std, count]:
@@ -405,16 +407,40 @@ for marker in ['HAMP2','MUP3']:
         _marker_data_ratio = _marker_data_ratio.append(_ratio)
     # plotting
     expanded = _marker_data_ratio.clonal_sizes.unique()[1]
-    _plot_data = _marker_data_ratio[_marker_data_ratio.clonal_sizes==expanded]
-    _plot_data.sort_values('Condition', ascending=False, inplace=True)
-    _ = plt.figure(figsize=(16,6))
+    _plot_data = _marker_data_ratio[_marker_data_ratio.clonal_sizes==expanded].copy()
+    _plot_data.sort_values(['Condition','zone'], ascending=[False,True], inplace=True)
+    _plot_data.filler += np.random.uniform(low = 0, high=0.01, size=len(_plot_data))
+    
+    # dummy plots, just to get the Path objects
+    fig, ax = plt.subplots(1,1)
+    a = ax.scatter([1,2],[3,4], marker='o')
+    b = ax.scatter([1,2],[3,4], marker='X')
+    square_mk, = a.get_paths()
+    triangle_up_mk, = b.get_paths()
+    a.remove()
+    b.remove()
+    _ = plt.figure(figsize=(18,6))
     colors = sns.diverging_palette(30,270,n=2, s=100)
-    sns.swarmplot(
-        data=_plot_data, x='zone',y='filler',hue='Condition', alpha=0.5,
-        s = 10, palette = colors)
+    ax = sns.swarmplot(
+        data=_plot_data, 
+        x='zone',y='filler',hue='Condition', alpha=0.75,
+        s = 10, palette = colors, marker='o', dodge=True,
+        hue_order = ['Normal', '6 Months'])
+    N_hues = len(pd.unique(_plot_data.Condition))
+    c = ax.collections
+    for a in c[::N_hues]:
+        a.set_paths([triangle_up_mk])
+    for a in c[1::N_hues]:
+        a.set_paths([square_mk])
+    top = {'HAMP2':0.5,'MUP3':1}[marker]
+    for i in range(24):
+        plt.plot([i,i],[0,top], c='grey')
     plt.ylabel('Ratio of expanded clones to all clones')
     plt.xlabel('TPS Layers')
     plt.title(marker)
+    ax.legend(
+        c[-2:],pd.unique(_plot_data.Condition), 
+        markerscale=3, loc='lower left', bbox_to_anchor=(0,1))
     plt.savefig(marker + ' spot expanded ratio.pdf',bbox_inches='tight')
     plt.close(fig)
 
@@ -433,10 +459,10 @@ plot_data_aav = plot_data_aav.sort_values('Condition')
 plot_data_aav = plot_data_aav.rename({'Condition':'Marker'}, axis=1)
 
 g = sns.lineplot(
-    x='zone', y='percent of cellular tomato area in zone no exp',
+    x='zone', y='percent of cellular marker area in zone no exp',
     data = plot_data_aav)
 g.axes.set_xlabel('TPS Layers')
-g.axes.set_ylabel('% Tomato area in layer')
+g.axes.set_ylabel('% marker area in layer')
 g.axes.set_xticklabels([])
 plt.savefig('AAV.pdf',bbox_inches='tight')
 # plt.tight_layout()
@@ -452,7 +478,7 @@ ddc.zone = ddc.zone.str.zfill(2)
 ddc = ddc.sort_values('Condition')
 ddc = ddc.rename({'Condition':'Marker'}, axis=1)
 zone_order = sorted(ddc.zone.unique())
-ddc = ddc[~ddc.zone.isin(['01','24'])]
+# ddc = ddc[~ddc.zone.isin(['01','24'])]
 ddc['T'] = [x.split(' ')[0] for x in ddc.Marker]
 ddc.Marker = ddc.Marker.str.replace('DDC ','')
 ddc.Marker = ddc.Marker.str.replace('DDC_control ','')
@@ -464,7 +490,7 @@ g = sns.FacetGrid(
     legend_out = False, height=5,
     col_order = markers,
     )
-g = g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp', lw=2)
+g = g.map(sns.lineplot, 'zone','percent of cellular marker area in zone no exp', lw=2)
 g.set_titles(col_template='{col_name}',fontsize = 'large')
 g.set_xticklabels([])
 g.set_xlabels('')
@@ -480,13 +506,24 @@ g = sns.FacetGrid(
     legend_out = False, height=4,
     despine=False, gridspec_kws = {'hspace':0.15}
     )
-g.map(sns.lineplot, 'zone','percent of cellular tomato area in zone no exp', lw=2)
+g.map(sns.lineplot, 'zone','percent of cellular marker area in zone no exp', lw=2)
 g.set_titles('')
 g.set_xticklabels([])
 g.set_xlabels('TPS Layers')
 g.set_ylabels('')
 g.savefig('Figure 6c.pdf')
 plt.close()
+
+# Calculating P-values
+ddc['Zones'] = 'Zone2'
+ddc.loc[ddc.zone.isin(['01', '02', '03', '04', '05', '06']),'Zones'] = 'Zone3' 
+ddc.loc[ddc.zone.isin(['19', '20', '21', '22','23', '24']),'Zones'] = 'Zone1'
+for marker, df in ddc.groupby('Marker'):
+    for z in ['Zone1','Zone3']:
+        ddc_v = df[(df.Zones == z) & (df['T']=='DDC')]['percent of cellular marker area in zone no exp']
+        control_v = df[(df.Zones == z) & (df['T']=='Control')]['percent of cellular marker area in zone no exp']
+        _, pval = ttest_ind(ddc_v, control_v)
+        print('{} {} pval: {:.4e}'.format(marker, z, pval))
 # %%
 #%%
 '''

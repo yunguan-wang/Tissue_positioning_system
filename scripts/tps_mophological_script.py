@@ -98,11 +98,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-tc",
-        "--tomato_cutoff",
+        "--marker_cutoff",
         nargs="?",
         type=int,
         default=0,
-        help="Forced tomato cutoff, used in place of OTSU thresholding.",
+        help="Forced marker cutoff, used in place of OTSU thresholding.",
     )
     parser.add_argument(
         "-dr",
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     update = args.update
     dapi_cutoff = args.dapi_cutoff
     spot_size = args.spot_size
-    tomato_cutoff = args.tomato_cutoff
+    marker_cutoff = args.marker_cutoff
     dapi_dilation_r = args.dapi_dilation_r
     logging = args.logging
 
@@ -265,7 +265,7 @@ if __name__ == "__main__":
             zones,
             dapi_cutoff="otsu",
             plot_type="probs",
-            tomato_cutoff=tomato_cutoff,
+            marker_cutoff=marker_cutoff,
             prefix=output_prefix + "Marker",
         )
         zone_int.to_csv(output_prefix + "zone int.csv")
@@ -273,7 +273,7 @@ if __name__ == "__main__":
         # Calculate zonal spot clonal sizes.
         if spot_size:
             spot_sizes_df, skipped_boxes, valid_nuclei_mask = calculate_clonal_size(
-                img, zones, tomato_erosion=1
+                img, zones, marker_erosion=1
             )
             spot_segmentation_diagnosis(
                 img,

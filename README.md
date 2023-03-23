@@ -29,7 +29,7 @@ python scripts/worker_script.py input/example.tif -o output/example
 ```
 ```
 Prosessing input/example.tif
-Parameters: Namespace(dapi_cutoff=20, dapi_dilation_r=0, gs_higher_limit=0.75, gs_lower_limit=0.25, gs_step=0.1, input_img='input/example.tif', logging=False, maximal_neighbor_distance=20, output='', spot_size=False, tomato_cutoff=0, update=False, vessel_size_factor=2)
+Parameters: Namespace(dapi_cutoff=20, dapi_dilation_r=0, gs_higher_limit=0.75, gs_lower_limit=0.25, gs_step=0.1, input_img='input/example.tif', logging=False, maximal_neighbor_distance=20, output='', spot_size=False, marker_cutoff=0, update=False, vessel_size_factor=2)
 Segmentating using GS and DAPI
 Merging neighboring masks...
 Continue merging neighboring masks...
